@@ -1,0 +1,181 @@
+{
+  "card_region": [
+    0,
+    0,
+    1622,
+    1020
+  ],
+  "fields": {
+    "blood_group": {
+      "rel_bbox": [
+        0.3914919852034525,
+        0.8627450980392157,
+        0.05425400739827373,
+        0.043137254901960784
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": false,
+      "color": "#000000",
+      "offset_y": 10
+    },
+    "date_of_birth": {
+      "rel_bbox": [
+        0.687422934648582,
+        0.8549019607843137,
+        0.15659679408138102,
+        0.050980392156862744
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "right",
+      "arabic": false,
+      "color": "#000000",
+      "offset_y": 20
+    },
+    "date_of_expiry": {
+      "rel_bbox": [
+        0.6713933415536375,
+        0.4215686274509804,
+        0.15906288532675708,
+        0.049019607843137254
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "right",
+      "arabic": false,
+      "color": "#000000",
+      "offset_y": 13
+    },
+    "date_of_issue": {
+      "rel_bbox": [
+        0.6701602959309494,
+        0.3509803921568627,
+        0.16029593094944514,
+        0.050980392156862744
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "right",
+      "arabic": false,
+      "color": "#000000",
+      "offset_y": 21
+    },
+    "given_names": {
+      "rel_bbox": [
+        0.7367447595561035,
+        0.7529411764705882,
+        0.16276202219482122,
+        0.043137254901960784
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "right",
+      "arabic": true,
+      "color": "#000000",
+      "offset_y": -4
+    },
+    "national_id": {
+      "rel_bbox": [
+        0.3039457459926017,
+        0.23921568627450981,
+        0.18002466091245375,
+        0.056862745098039215
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "center",
+      "arabic": false,
+      "color": "#000000",
+      "offset_y": 16
+    },
+    "personal_id": {
+      "rel_bbox": [
+        0.4963008631319359,
+        0.5803921568627451,
+        0.28976572133168926,
+        0.047058823529411764
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "right",
+      "arabic": false,
+      "color": "#000000",
+      "offset_y": 27
+    },
+    "place_of_birth": {
+      "rel_bbox": [
+        0.687422934648582,
+        0.9176470588235294,
+        0.15659679408138102,
+        0.045098039215686274
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "right",
+      "arabic": true,
+      "color": "#000000",
+      "offset_y": -11
+    },
+    "place_of_issue": {
+      "rel_bbox": [
+        0.5283600493218249,
+        0.28431372549019607,
+        0.30456226880394577,
+        0.052941176470588235
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "right",
+      "arabic": true,
+      "color": "#000000",
+      "offset_y": -8
+    },
+    "sex": {
+      "rel_bbox": [
+        0.5184956843403206,
+        0.8607843137254902,
+        0.04932182490752158,
+        0.049019607843137254
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "right",
+      "arabic": true,
+      "color": "#000000",
+      "offset_y": -15
+    },
+    "surname": {
+      "rel_bbox": [
+        0.7379778051787916,
+        0.6470588235294118,
+        0.16276202219482122,
+        0.045098039215686274
+      ],
+      "font_scale": 0.7,
+      "anchor": "lt",
+      "justification": "right",
+      "arabic": true,
+      "color": "#000000",
+      "offset_y": -15
+    }
+  },
+  "photo_placeholders": {
+    "photo_1": {
+      "background": "transparent",
+      "border": {
+        "color": "#cccccc",
+        "width": 2
+      },
+      "rel_bbox": [
+        0.019852034525277444,
+        0.4019607843137255,
+        0.2838471023427867,
+        0.5186274509803922
+      ],
+      "shape": "rect"
+    }
+  },
+  "vggface2_path": "data/vggface2"
+}

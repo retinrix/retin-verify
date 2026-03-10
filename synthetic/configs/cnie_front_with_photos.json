@@ -1,0 +1,181 @@
+{
+  "card_region": [
+    0,
+    0,
+    1622,
+    1020
+  ],
+  "photo_placeholders": {
+    "left_photo": {
+      "rel_bbox": [
+        0.035,
+        0.25,
+        0.22,
+        0.35
+      ],
+      "shape": "rect",
+      "background": "white",
+      "border": {
+        "width": 2,
+        "color": "#cccccc"
+      }
+    }
+  },
+  "vggface2_path": "data/vggface2",
+  "fields": {
+    "national_id": {
+      "rel_bbox": [
+        0.31,
+        0.12,
+        0.35,
+        0.035
+      ],
+      "font_scale": 0.8,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": false,
+      "color": "#3a3a3a",
+      "offset_y": 0
+    },
+    "place_of_issue": {
+      "rel_bbox": [
+        0.65,
+        0.12,
+        0.25,
+        0.035
+      ],
+      "font_scale": 0.75,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": true,
+      "color": "#3a3a3a",
+      "offset_y": 0
+    },
+    "date_of_issue": {
+      "rel_bbox": [
+        0.31,
+        0.195,
+        0.2,
+        0.035
+      ],
+      "font_scale": 0.75,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": false,
+      "color": "#3a3a3a",
+      "offset_y": 0
+    },
+    "date_of_expiry": {
+      "rel_bbox": [
+        0.65,
+        0.195,
+        0.2,
+        0.035
+      ],
+      "font_scale": 0.75,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": false,
+      "color": "#3a3a3a",
+      "offset_y": 0
+    },
+    "personal_id": {
+      "rel_bbox": [
+        0.31,
+        0.27,
+        0.55,
+        0.035
+      ],
+      "font_scale": 0.8,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": false,
+      "color": "#3a3a3a",
+      "offset_y": 0
+    },
+    "surname": {
+      "rel_bbox": [
+        0.31,
+        0.42,
+        0.55,
+        0.04
+      ],
+      "font_scale": 0.85,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": true,
+      "color": "#000000",
+      "offset_y": 0
+    },
+    "given_names": {
+      "rel_bbox": [
+        0.31,
+        0.52,
+        0.55,
+        0.04
+      ],
+      "font_scale": 0.85,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": true,
+      "color": "#000000",
+      "offset_y": 0
+    },
+    "sex": {
+      "rel_bbox": [
+        0.82,
+        0.425,
+        0.1,
+        0.035
+      ],
+      "font_scale": 0.75,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": true,
+      "color": "#3a3a3a",
+      "offset_y": 0
+    },
+    "date_of_birth": {
+      "rel_bbox": [
+        0.82,
+        0.52,
+        0.12,
+        0.035
+      ],
+      "font_scale": 0.75,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": false,
+      "color": "#3a3a3a",
+      "offset_y": 0
+    },
+    "blood_group": {
+      "rel_bbox": [
+        0.48,
+        0.63,
+        0.08,
+        0.035
+      ],
+      "font_scale": 0.75,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": false,
+      "color": "#3a3a3a",
+      "offset_y": 0
+    },
+    "place_of_birth": {
+      "rel_bbox": [
+        0.65,
+        0.63,
+        0.28,
+        0.035
+      ],
+      "font_scale": 0.75,
+      "anchor": "lt",
+      "justification": "left",
+      "arabic": true,
+      "color": "#3a3a3a",
+      "offset_y": 0
+    }
+  }
+}
