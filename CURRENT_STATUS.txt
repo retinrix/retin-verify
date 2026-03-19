@@ -1,0 +1,20 @@
+# Current Project Status
+# Auto-generated: 2026-03-19 10:38:25
+
+## Last Session
+- **Date:** 2026-03-19 10:38:25
+- **Task:** Project Reorganization
+- **Status:** complete
+
+## Progress
+Reorganized entire project structure, moved training scripts to training/, docs to docs/{subject}/, created AGENTS.md and ORGANIZATION_RULES.md, added automatic session saving
+
+## Next Steps
+Complete GitHub push (needs auth), start v3 training with synthetic data
+
+## Notes
+
+
+---
+# To update this file, use:
+# python3 .kimi/session_manager.py save "Task Name" "status" "progress" "next_steps"
