@@ -1,0 +1,62 @@
+# Kimi Code CLI Configuration
+# This file configures how Kimi interacts with this project
+
+[project]
+# Project name
+name = "retin-verify"
+
+# Project description
+description = "AI-Powered Identity Document Verification System"
+
+# Files to always load at session start
+# AGENTS.md is automatically loaded if present
+auto_load_files = [
+    "AGENTS.md",
+    ".github/ORGANIZATION_RULES.md",
+    "CURRENT_STATUS.txt"
+]
+
+# Directories to ignore in searches
+ignore_dirs = [
+    ".venv",
+    "__pycache__",
+    ".git",
+    "node_modules",
+    ".pytest_cache",
+    "*.egg-info",
+    "dist",
+    "build",
+    "data/cnie_dataset_10k",  # Large synthetic dataset
+    "data/vggface2.backup",
+    "anonymized_output",
+    "backups"
+]
+
+# File types to prioritize in searches
+priority_extensions = [
+    ".py",
+    ".md",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".sh",
+    ".txt"
+]
+
+[session]
+# Session startup behavior
+# - "verbose": Load all context and display summary
+# - "quiet": Load context silently
+# - "ask": Ask before loading large contexts
+startup_mode = "verbose"
+
+# Always remind about organization rules
+remind_organization = true
+
+[commands]
+# Custom shortcuts for this project
+default_startup_commands = [
+    "pwd",
+    "git status --short",
+    "cat CURRENT_STATUS.txt 2>/dev/null || echo 'No status file - create one with session info'"
+]
