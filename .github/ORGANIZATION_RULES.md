@@ -135,6 +135,40 @@ Same pattern as classification.
 
 ## 🔄 Workflow Rules
 
+### Automatic Session Saving
+
+**MANDATORY: Save session state at the end of EVERY session.**
+
+```bash
+# Quick save (minimal)
+python3 .kimi/session_manager.py save "Task Name" "status" "progress" "next_steps"
+
+# Examples:
+python3 .kimi/session_manager.py save \
+    "v3 Training Deployment" \
+    "in_progress" \
+    "Deployed training to Colab, monitoring epoch 15/50" \
+    "Download model when training completes, test accuracy"
+
+python3 .kimi/session_manager.py save \
+    "Data Collection" \
+    "complete" \
+    "Collected 50 new front images, 45 back images" \
+    "Augment dataset and retrain"
+```
+
+**What gets saved:**
+- Task name and status
+- Progress description
+- Next steps
+- Timestamp
+- Git status snapshot
+
+**Files created/updated:**
+- `.kimi/session_state.json` - Machine-readable state
+- `CURRENT_STATUS.txt` - Human-readable status
+- `.kimi/session_history.jsonl` - Session history log
+
 ### Starting a New Task
 
 1. Check if relevant directory exists
@@ -194,6 +228,33 @@ find . -type f -name ".DS_Store" -delete 2>/dev/null
 
 # Verify structure
 tree -L 2  # or ls -R
+```
+
+### Ending a Session (MANDATORY CHECKLIST)
+
+```bash
+# 1. SAVE SESSION STATE (REQUIRED)
+python3 .kimi/session_manager.py save \
+    "Task Name" \
+    "in_progress|complete|blocked" \
+    "What was accomplished" \
+    "What to do next"
+
+# 2. Update status file
+cat CURRENT_STATUS.txt
+
+# 3. Clean temporary files
+find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+find . -type f -name "*.pyc" -delete 2>/dev/null
+
+# 4. Verify no misplaced files
+find apps/ -name "train*.py" 2>/dev/null  # Should be empty
+find apps/ -name "*.pth" 2>/dev/null      # Should be empty
+
+# 5. Commit changes
+git add [files]
+git commit -m "[descriptive message]"
+git push origin main
 ```
 
 ---

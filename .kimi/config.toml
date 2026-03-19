@@ -53,6 +53,11 @@ startup_mode = "verbose"
 # Always remind about organization rules
 remind_organization = true
 
+# Auto-save on session end
+# Kimi should remind to save session before ending
+auto_save_reminder = true
+auto_save_script = ".kimi/session_manager.py"
+
 [commands]
 # Custom shortcuts for this project
 default_startup_commands = [

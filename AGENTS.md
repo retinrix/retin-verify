@@ -100,6 +100,55 @@ retin-verify/
 
 ---
 
+## 💾 AUTOMATIC SESSION SAVING (MANDATORY)
+
+**EVERY session MUST end with saving state:**
+
+```bash
+# Save session (run this before ending)
+python3 .kimi/session_manager.py save \
+    "Task Name" \
+    "in_progress|complete|blocked" \
+    "Progress made this session" \
+    "Next steps to take"
+```
+
+**What this does:**
+- Creates `.kimi/session_state.json` (machine-readable)
+- Updates `CURRENT_STATUS.txt` (human-readable)
+- Appends to `.kimi/session_history.jsonl` (full history)
+
+**Why this matters:**
+- Next session knows exactly where you left off
+- No lost context between sessions
+- Full history of project progress
+- Kimi can auto-resume with full context
+
+### Quick Save Examples
+
+```bash
+# After training deployment
+python3 .kimi/session_manager.py save \
+    "v3 Training Deployment" \
+    "in_progress" \
+    "Deployed to Colab, training at epoch 15/50, balance 85%" \
+    "Download model at epoch 50, test on validation set"
+
+# After data collection
+python3 .kimi/session_manager.py save \
+    "Data Collection - Back Images" \
+    "complete" \
+    "Collected 50 back images, total dataset: 150 per class" \
+    "Run augmentation and start v4 training"
+
+# When blocked
+python3 .kimi/session_manager.py save \
+    "Model Optimization" \
+    "blocked" \
+    "ONNX conversion failing with opset 13 error" \
+    "Research ONNX opset compatibility, try opset 11"
+```
+
 ## 🔄 SESSION WORKFLOW
 
 ### Starting a Session
@@ -133,14 +182,17 @@ retin-verify/
 
 ### Ending a Session
 
-1. **Update status file**
+1. **SAVE SESSION (MANDATORY)**
    ```bash
-   cat > CURRENT_STATUS.txt << 'EOF'
-   Session: $(date)
-   Task: [what you worked on]
-   Status: [in-progress/complete/blocked]
-   Next: [what to do next]
-   EOF
+   # This is REQUIRED - never skip this step
+   python3 .kimi/session_manager.py save \
+       "Task Name" \
+       "in_progress" \
+       "What was accomplished" \
+       "Next steps"
+   
+   # Or let Kimi do it automatically:
+   # Just say: "save session" and Kimi will run the command
    ```
 
 2. **Clean up temporary files**
@@ -293,6 +345,7 @@ models/classification/model.pth              # Models in models/
 - [ ] Confirm you're in `/home/retinrix/retin-verify`
 
 ### At End:
+- [ ] **SAVE SESSION** (REQUIRED): `python3 .kimi/session_manager.py save "Task" "status" "progress" "next"`
 - [ ] Files in correct directories
 - [ ] Named following conventions
 - [ ] Temporary files cleaned
