@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNIE Classification</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            color: #333;
+            font-size: 1.8rem;
+        }
+
+        /* 4-Panel Grid Layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 20px;
+            height: calc(100vh - 100px);
+            min-height: 600px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+                height: auto;
+            }
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 16px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-body {
+            flex: 1;
+            padding: 16px;
+            overflow: auto;
+        }
+
+        /* Camera Panel */
+        .camera-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #video {
+            flex: 1;
+            width: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        #cameraPreview {
+            flex: 1;
+            width: 100%;
+            object-fit: contain;
+            display: none;
+            background: #1a1a1a;
+        }
+
+        .camera-placeholder {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .camera-placeholder .icon {
+            font-size: 4rem;
+            margin-bottom: 16px;
+        }
+
+        /* GUIDANCE OVERLAY */
+        .guidance-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            display: none;
+            z-index: 5;
+        }
+
+        .guidance-overlay.active {
+            display: block;
+        }
+
+        /* Target bounding box - 40% of screen (ideal size) */
+        .target-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 45%;
+            height: 30%;
+            border: 3px dashed rgba(33, 150, 243, 0.6);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .target-box.too-close {
+            border-color: rgba(244, 67, 54, 0.8);
+            box-shadow: 0 0 20px rgba(244, 67, 54, 0.3);
+        }
+
+        .target-box.too-far {
+            border-color: rgba(255, 152, 0, 0.8);
+            box-shadow: 0 0 20px rgba(255, 152, 0, 0.3);
+        }
+
+        .target-box.perfect {
+            border-color: rgba(76, 175, 80, 0.9);
+            border-style: solid;
+            box-shadow: 0 0 25px rgba(76, 175, 80, 0.5);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.02); }
+        }
+
+        /* Corner markers */
+        .target-corner {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-color: inherit;
+            border-style: solid;
+            border-width: 0;
+        }
+
+        .target-corner.tl {
+            top: -3px;
+            left: -3px;
+            border-top-width: 4px;
+            border-left-width: 4px;
+            border-top-left-radius: 12px;
+        }
+
+        .target-corner.tr {
+            top: -3px;
+            right: -3px;
+            border-top-width: 4px;
+            border-right-width: 4px;
+            border-top-right-radius: 12px;
+        }
+
+        .target-corner.bl {
+            bottom: -3px;
+            left: -3px;
+            border-bottom-width: 4px;
+            border-left-width: 4px;
+            border-bottom-left-radius: 12px;
+        }
+
+        .target-corner.br {
+            bottom: -3px;
+            right: -3px;
+            border-bottom-width: 4px;
+            border-right-width: 4px;
+            border-bottom-right-radius: 12px;
+        }
+
+        /* Distance indicator */
+        .distance-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 200px;
+        }
+
+        .distance-bar {
+            width: 100px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .distance-fill {
+            height: 100%;
+            width: 50%;
+            background: linear-gradient(90deg, #f44336 0%, #ff9800 50%, #4caf50 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .distance-label {
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        /* Guide text labels */
+        .guide-text {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .guide-text.visible {
+            opacity: 1;
+        }
+
+        .guide-text.too-close {
+            top: 15%;
+            background: rgba(244, 67, 54, 0.85);
+        }
+
+        .guide-text.too-far {
+            top: 15%;
+            background: rgba(255, 152, 0, 0.85);
+        }
+
+        .guide-text.perfect {
+            top: 15%;
+            background: rgba(76, 175, 80, 0.9);
+            font-size: 1rem;
+            padding: 10px 20px;
+        }
+
+        .guide-text.angle {
+            bottom: 80px;
+            background: rgba(33, 150, 243, 0.85);
+        }
+
+        /* Back tips button active state */
+        .btn-info.active {
+            background: #e65100;
+            color: white;
+        }
+
+        /* Back tips section */
+        .back-tips {
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .camera-controls {
+            padding: 16px;
+            background: #f8f9fa;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd6;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Results Panel */
+        .result-content {
+            display: none;
+        }
+
+        .result-content.active {
+            display: block;
+        }
+
+        .result-placeholder {
+            text-align: center;
+            color: #999;
+            padding: 60px 20px;
+        }
+
+        .prediction-display {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .prediction-class {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .prediction-class.no-card {
+            color: #dc3545;
+            font-size: 1.3rem;
+        }
+
+        .no-card-warning {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .no-card-warning .icon {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .confidence-section {
+            margin: 20px 0;
+        }
+
+        .confidence-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 24px;
+            background: #e9ecef;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+
+        .confidence-fill.low {
+            background: linear-gradient(90deg, #dc3545, #fd7e14);
+        }
+
+        .confidence-fill.medium {
+            background: linear-gradient(90deg, #ffc107, #ff9800);
+        }
+
+        .scores-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .scores-table th,
+        .scores-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .scores-table th {
+            color: #666;
+            font-weight: 600;
+        }
+
+        .feedback-section {
+            margin-top: 20px;
+            padding: 16px;
+            background: #e8f4fd;
+            border-radius: 8px;
+            border: 2px solid #2196F3;
+        }
+
+        .feedback-section h4 {
+            margin-bottom: 10px;
+            color: #1976D2;
+            color: #856404;
+        }
+
+        .upload-progress {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .upload-progress.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #667eea;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* Info Panel */
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #666;
+        }
+
+        .info-value {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-ok {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* History Panel */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .history-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            background: #e9ecef;
+        }
+
+        .history-item.flagged {
+            border-left-color: #ffc107;
+        }
+
+        .history-item.uploaded {
+            border-left-color: #28a745;
+        }
+
+        .history-item.failed {
+            border-left-color: #dc3545;
+        }
+
+        .history-thumb {
+            width: 60px;
+            height: 60px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: #ddd;
+        }
+
+        .history-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .history-class {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 2px;
+        }
+
+        .history-confidence {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .history-time {
+            font-size: 0.75rem;
+            color: #999;
+        }
+
+        .history-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+        }
+
+        .history-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .btn-small {
+            padding: 4px 10px;
+            font-size: 0.75rem;
+        }
+
+        .history-empty {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e9ecef;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-top: 10px;
+            color: white;
+            font-size: 0.9rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success { background: #28a745; }
+        .toast.error { background: #dc3545; }
+        .toast.warning { background: #ffc107; color: #212529; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🆔 CNIE Classification</h1>
+        </header>
+
+        <div class="main-grid">
+            <!-- PANEL 1: Camera Capture -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>📷 Camera Capture</span>
+                    <span id="cameraStatus">●</span>
+                </div>
+                <div class="panel-body" style="padding: 0; position: relative;">
+                    <div class="camera-container">
+                        <video id="video" autoplay playsinline></video>
+                        <img id="cameraPreview" alt="Preview">
+                        <canvas id="canvas" style="display: none;"></canvas>
+                        
+                        <!-- GUIDANCE OVERLAY -->
+                        <div class="guidance-overlay" id="guidanceOverlay">
+                            <!-- Target bounding box -->
+                            <div class="target-box" id="targetBox">
+                                <div class="target-corner tl"></div>
+                                <div class="target-corner tr"></div>
+                                <div class="target-corner bl"></div>
+                                <div class="target-corner br"></div>
+                            </div>
+                            
+                            <!-- Distance indicator -->
+                            <div class="distance-indicator" id="distanceIndicator">
+                                <div class="distance-bar">
+                                    <div class="distance-fill" id="distanceFill"></div>
+                                </div>
+                                <span class="distance-label" id="distanceLabel">Position card here</span>
+                            </div>
+                            
+                            <!-- Positioning guides -->
+                            <div class="guide-text too-close" id="guideTooClose">📷 Too close! Move back</div>
+                            <div class="guide-text too-far" id="guideTooFar">📷 Too far! Move closer</div>
+                            <div class="guide-text perfect" id="guidePerfect">✅ Perfect! Hold steady</div>
+                            <div class="guide-text angle" id="guideAngle">📐 Keep card flat</div>
+                        </div>
+                        
+                        <div class="camera-placeholder" id="cameraPlaceholder">
+                            <div class="icon">📷</div>
+                            <p>Camera not started</p>
+                            <p style="font-size: 0.85rem; margin-top: 10px; color: #666;">
+                                Click "Start Camera" to begin
+                            </p>
+                        </div>
+
+                        <div class="loading-overlay" id="loadingOverlay">
+                            <div class="spinner"></div>
+                            <p>Processing...</p>
+                        </div>
+                    </div>
+
+                    <div class="camera-controls">
+                        <button class="btn btn-primary" id="startBtn" onclick="startCamera()">
+                            ▶️ Start Camera
+                        </button>
+                        <button class="btn btn-success" id="captureBtn" onclick="captureImage()" disabled>
+                            📸 Capture
+                        </button>
+                        <button class="btn btn-warning" id="retakeBtn" onclick="retakeImage()" style="display: none;">
+                            🔄 Retake
+                        </button>
+                        <button class="btn btn-secondary" id="uploadBtn" onclick="uploadCapture()" style="display: none;">
+                            📤 Upload
+                        </button>
+                        <button class="btn btn-info" id="backTipsBtn" onclick="toggleBackTips()" style="font-size: 0.85rem;">
+                            🔙 Back Tips
+                        </button>
+                    </div>
+                    
+                    <div class="capture-guide" id="captureGuide" style="padding: 12px; background: #e3f2fd; border-top: 2px solid #2196F3; font-size: 0.85rem; color: #1565C0;">
+                        <strong>📸 Capture Tips:</strong>
+                        <ul style="margin: 5px 0; padding-left: 20px;">
+                            <li>Hold card at <strong>arm's length</strong> (30-50cm)</li>
+                            <li>Align card with the <strong>blue box</strong> on screen</li>
+                            <li>Wait for <strong>green "Perfect"</strong> indicator</li>
+                            <li>Keep card <strong>flat</strong> and facing camera</li>
+                        </ul>
+                        <div style="margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.5); border-radius: 4px; font-size: 0.8rem;">
+                            <strong>Guidance Colors:</strong>
+                            <span style="color: #2196F3;">● Blue</span> = Position card here | 
+                            <span style="color: #4caf50;">● Green</span> = Perfect! | 
+                            <span style="color: #f44336;">● Red</span> = Too close | 
+                            <span style="color: #ff9800;">● Orange</span> = Too far
+                        </div>
+                    </div>
+                    
+                    <div class="back-tips" id="backTips" style="padding: 12px; background: #fff3e0; border-top: 2px solid #ff9800; font-size: 0.8rem; color: #e65100; display: none;">
+                        <strong>🔙 CAPTURING BACK SIDE?</strong>
+                        <ul style="margin: 5px 0; padding-left: 18px;">
+                            <li>Ensure the <strong>CHIP (gold/silver)</strong> is clearly visible</li>
+                            <li>Avoid <strong>glare/reflection</strong> on the chip</li>
+                            <li>If classified as front: <strong>slightly rotate</strong> card (10-20°)</li>
+                            <li>Try different <strong>lighting angle</strong></li>
+                            <li>Capture at <strong>varied distances</strong> (close/medium/far)</li>
+                        </ul>
+                        <div style="margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.6); border-radius: 4px;">
+                            <small>
+                                <strong>💡 Help improve the model:</strong><br>
+                                If back is misclassified, click '🚩 Wrong' to save it.<br>
+                                Collect 30+ back samples for retraining.<br>
+                                Current: ~58 samples | Target: 80+ samples
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL 2: Classification Results -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>🎯 Classification Results</span>
+                </div>
+                <div class="panel-body">
+                    <div class="result-placeholder" id="resultPlaceholder">
+                        <p>Capture an image to see classification results</p>
+                    </div>
+
+                    <div class="result-content" id="resultContent">
+                        <div class="prediction-display">
+                            <div class="prediction-class" id="predictedClass">-</div>
+                            
+                            <div class="confidence-section">
+                                <div class="confidence-label">
+                                    <span>Confidence</span>
+                                    <span id="confidenceValue">0%</span>
+                                </div>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" id="confidenceBar" style="width: 0%">
+                                        <span id="confidenceText"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <table class="scores-table">
+                                <thead>
+                                    <tr>
+                                        <th>Class</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scoresBody">
+                                </tbody>
+                            </table>
+
+                            <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
+                                ⏱️ Inference time: <span id="inferenceTime">-</span>ms
+                            </p>
+                        </div>
+
+                        <div class="no-card-warning" id="noCardWarning" style="display: none;">
+                            <div class="icon">📷</div>
+                            <strong>No CNIE Card Detected</strong>
+                            <p style="margin: 5px 0 0 0; font-size: 0.9rem;">
+                                Please hold the card closer to the camera and ensure good lighting.
+                            </p>
+                        </div>
+
+                        <div class="feedback-section" id="feedbackSection" style="display: none;">
+                            <h4>📝 Feedback Options</h4>
+                            <p>Help improve the model:</p>
+                            
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0;">
+                                <button class="btn btn-warning" id="flagBtn" onclick="flagForRetraining()" title="Prediction was wrong (front/back)">
+                                    🚩 Wrong (Front/Back)
+                                </button>
+                                <button class="btn btn-danger" onclick="saveAsNoCard()" title="This is NOT a CNIE card (credit card, empty, other doc)">
+                                    📷 Not a CNIE Card
+                                </button>
+                            </div>
+
+                            <div class="upload-progress" id="uploadProgress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progressFill"></div>
+                                </div>
+                                <div class="progress-text" id="progressText">Uploading...</div>
+                            </div>
+
+                            <p id="uploadStatus" style="margin-top: 10px; font-size: 0.85rem;"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL 3: Model Information -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>ℹ️ Model Information</span>
+                </div>
+                <div class="panel-body">
+                    <div id="modelInfo">
+                        <div class="info-item">
+                            <span class="info-label">Status</span>
+                            <span class="info-value">
+                                <span class="status-badge status-ok" id="modelStatus">Loading...</span>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Model</span>
+                            <span class="info-value" id="modelName">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Classes</span>
+                            <span class="info-value" id="modelClasses">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Device</span>
+                            <span class="info-value" id="modelDevice">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Input Size</span>
+                            <span class="info-value" id="modelInputSize">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Total Captures</span>
+                            <span class="info-value" id="totalCaptures">0</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Flagged</span>
+                            <span class="info-value" id="totalFlagged">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL 4: Recent Captures (History) -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>📜 Recent Captures</span>
+                    <button class="btn btn-small btn-secondary" onclick="clearHistory()">Clear</button>
+                </div>
+                <div class="panel-body">
+                    <div class="history-list" id="historyList">
+                        <div class="history-empty">
+                            <p>No captures yet</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

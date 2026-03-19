@@ -1,0 +1,28 @@
+╔══════════════════════════════════════════════════════════════╗
+║           CNIE CLASSIFICATION - CURRENT STATUS               ║
+╠══════════════════════════════════════════════════════════════╣
+║ Server:     Running on http://localhost:8000                 ║
+║ Model:      cnie_classifier_3class_v2.pth                    ║
+║ Device:     CPU (GTX 950M CUDA incompatible)                 ║
+╠══════════════════════════════════════════════════════════════╣
+║ PERFORMANCE (with 35% front bias):                           ║
+║   Front:    92% (23/25)                                      ║
+║   Back:     68% (17/25)                                      ║
+║   No Card:  100% (10/10)                                     ║
+║   Balance:  68%                                              ║
+╠══════════════════════════════════════════════════════════════╣
+║ KNOWN ISSUES:                                                ║
+║   • 2 front images misclassified (need >60% bias to fix)     ║
+║   • Bias is temporary workaround                             ║
+║   • v3 training recommended for permanent fix                ║
+╠══════════════════════════════════════════════════════════════╣
+║ NEXT STEPS:                                                  ║
+║   1. Deploy v3 training (from scratch)                       ║
+║   2. Or implement two-stage classifier                       ║
+║   3. Or collect more balanced data                           ║
+╠══════════════════════════════════════════════════════════════╣
+║ QUICK COMMANDS:                                              ║
+║   Restart:  kill $(lsof -ti:8000) && python3 api_server.py   ║
+║   Test:     curl -F "file=@img.jpg" http://localhost:8000/.. ║
+║   Logs:     tail -f /tmp/api_server.log                      ║
+╚══════════════════════════════════════════════════════════════╝

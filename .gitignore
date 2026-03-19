@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# PyTorch
+*.pth
+*.pt
+*.ckpt
+
+# ONNX
+*.onnx
+
+# Data files (keep structure, ignore large files)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+!synthetic/templates/**/*.jpg
+!synthetic/templates/**/*.png
+!synthetic/backgrounds/**/*.jpg
+!synthetic/backgrounds/**/*.png
+
+# Archives
+*.tar
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Model outputs
+outputs/
+runs/
+wandb/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Keep these empty directories
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!models/classification/.gitkeep
+!models/detection/.gitkeep
+!models/extraction/.gitkeep

@@ -1,0 +1,21 @@
+# CNIE Classification Inference Applications
+# Install with: pip install -r requirements.txt
+
+# Core dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+Pillow>=10.0.0
+tqdm>=4.65.0
+
+# For manual testing (camera capture)
+opencv-python>=4.8.0
+
+# For API server (optional)
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-multipart>=0.0.6
+python-jose>=3.3.0  # For CORS support
+
+# For export functionality (optional)
+onnx>=1.14.0
