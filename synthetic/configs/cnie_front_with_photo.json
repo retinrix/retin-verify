@@ -163,18 +163,18 @@
   },
   "photo_placeholders": {
     "photo_1": {
+      "background": "transparent",
+      "border": {
+        "color": "#cccccc",
+        "width": 2
+      },
       "rel_bbox": [
         0.019852034525277444,
         0.4019607843137255,
         0.2838471023427867,
         0.5186274509803922
       ],
-      "shape": "rect",
-      "background": "transparent",
-      "border": {
-        "width": 2,
-        "color": "#cccccc"
-      }
+      "shape": "rect"
     }
   },
   "vggface2_path": "data/vggface2"

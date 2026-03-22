@@ -5,6 +5,12 @@
     1622,
     1020
   ],
+  "photo_placeholders": {
+    "holder_photo": {
+      "rel_bbox": [0.025, 0.200, 0.220, 0.380],
+      "shape": "oval"
+    }
+  },
   "fields": {
     "national_id": {
       "x": 493,

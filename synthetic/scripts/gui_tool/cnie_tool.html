@@ -293,6 +293,9 @@
     </style>
 </head>
 <body>
+<div style="background:#4caf50; color:white; text-align:center; padding:8px; font-weight:600; font-size:1.1rem;">
+    🪪 CNIE FRONT SIDE - National ID Card (Front)
+</div>
 <div class="container">
     <div class="main-panel">
         <div class="toolbar">
@@ -306,6 +309,7 @@
             <button onclick="document.getElementById('fontUpload').click()" title="Load Arabic Font">🔤</button>
             <button onclick="saveConfigAndPreview()" class="success" title="Generate Preview">🖼️</button>
             <button onclick="saveConfigAndDataset()" class="success" title="Generate Dataset">📦</button>
+            <button onclick="saveConfigAndGeneratePaired()" class="success" title="Generate Paired Front+Back">👥 Paired</button>
             <button onclick="runBatchPipeline()" class="success" title="Batch Generate (Full Pipeline)">📊 Batch Gen</button>
             <input type="number" id="numSamples" value="5" min="1" max="100" style="width:60px;">
             <div class="zoom-controls">
@@ -1461,7 +1465,11 @@
             alert('Failed to save config. Is the server running?');
             return;
         }
-        const previewResp = await fetch('/generate_preview', { method: 'POST' });
+        const previewResp = await fetch('/generate_preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ doc_type: 'cnie_front' })
+        });
         if (!previewResp.ok) {
             const err = await previewResp.json();
             alert('Preview generation failed: ' + (err.error || 'unknown error'));
@@ -1487,7 +1495,7 @@
         const datasetResp = await fetch('/generate_dataset', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ num_samples: parseInt(num) })
+            body: JSON.stringify({ num_samples: parseInt(num), doc_type: 'cnie_front' })
         });
         if (datasetResp.ok) {
             const data = await datasetResp.json();
@@ -1495,6 +1503,33 @@
         } else {
             const err = await datasetResp.json();
             alert('Dataset generation failed: ' + (err.error || 'unknown error'));
+        }
+    }
+
+    async function saveConfigAndGeneratePaired() {
+        const config = getCurrentConfig();
+        const saveResp = await fetch('/save_config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        if (!saveResp.ok) {
+            alert('Failed to save config. Is the server running?');
+            return;
+        }
+        const num = document.getElementById('numSamples').value;
+        alert(`Generating ${num} paired CNIE samples (front + back with same identity)...`);
+        const pairedResp = await fetch('/generate_paired', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ num_samples: parseInt(num) })
+        });
+        if (pairedResp.ok) {
+            const data = await pairedResp.json();
+            alert(`Paired dataset generated!\nOutput: ${data.output_dir}\nPairs: ${data.num_pairs}`);
+        } else {
+            const err = await pairedResp.json();
+            alert('Paired generation failed: ' + (err.error || 'unknown error'));
         }
     }
 
@@ -1513,7 +1548,7 @@
         const pipelineResp = await fetch('/run_pipeline', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ num_samples: parseInt(num) })
+            body: JSON.stringify({ num_samples: parseInt(num), doc_type: 'cnie_front' })
         });
         if (pipelineResp.ok) {
             const data = await pipelineResp.json();

@@ -17,7 +17,7 @@ from datetime import datetime
 import numpy as np
 
 # Configuration
-DATA_DIR = "/content/retin_retrain_3class/dataset_3class"
+DATA_DIR = "/content/retin_v3_synthetic/dataset_3class"
 BATCH_SIZE = 32
 EPOCHS = 50
 LR = 1e-3

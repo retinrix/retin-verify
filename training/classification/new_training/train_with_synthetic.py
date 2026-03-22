@@ -18,8 +18,8 @@ import numpy as np
 import random
 
 # Configuration
-REAL_DATA_DIR = "/content/retin_retrain_3class/dataset_3class"  # Real photos
-SYNTHETIC_DATA_DIR = "/content/synthetic_cnie"  # Will be extracted
+REAL_DATA_DIR = "/content/retin_v3_synthetic/dataset_3class"  # Real photos
+SYNTHETIC_DATA_DIR = None  # Will be extracted
 BATCH_SIZE = 32
 EPOCHS = 50
 LR = 1e-3
@@ -210,7 +210,11 @@ def validate(model, loader, criterion, device):
     total = {0: 0, 1: 0, 2: 0}
     
     with torch.no_grad():
-        for images, labels in loader:
+        for batch in loader:
+            if len(batch) == 3:
+                images, labels, _ = batch
+            else:
+                images, labels = batch
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             loss = criterion(outputs, labels)

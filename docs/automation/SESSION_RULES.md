@@ -153,15 +153,216 @@ For every PyTorch model:
 
 ### 5.2 Colab Session Workflow
 
+#### Automated Scripts (Recommended)
+
+Do not edit the .ssh/config file at all.
+read from .ssh/config file the hostname of cloudflared : <sshhostname>
+
+Use these generic scripts for deployment and training:
+
+**1. Deploy and Train:**
+```bash
+# Usage: ./colab_deploy_train.sh <hostname> <dataset_path> [script_path] [remote_dir]
+
+# Example - Stage 2 retraining:
+./scripts/colab_deploy_train.sh \
+    <sshhostname> \
+    ~/retin-verify/training_data/v6_stage2_corrected.tar.gz \
+    ~/retin-verify/colab/v6_stage2_retrain_colab.py \
+    /content
+
+# Example - Custom training:
+./scripts/colab_deploy_train.sh \
+    <sshhostname> \
+    ~/data/my_dataset.tar.gz \
+    ~/scripts/train.py
+```
+
+**2. Download and Deploy:**
+```bash
+# Usage: ./colab_download_model.sh <hostname> <remote_model_path> [local_path] [restart]
+
+# Example - Download and restart:
+./scripts/colab_download_model.sh \
+    <sshhostname> \
+    /content/v6_stage2_corrected_best.pth
+
+# Example - Download only (no restart):
+./scripts/colab_download_model.sh \
+    <sshhostname> \
+    /content/model.pth \
+    ~/models/my_model.pth \
+    no
+```
+
+#### Complete Workflow Example
+
+```
+Step 1: Deploy & Start Training
+$ ./scripts/colab_deploy_train.sh xxx.trycloudflare.com \
+    ~/retin-verify/training_data/v6_stage2_corrected.tar.gz
+✅ SSH key deployed
+✅ Dataset uploaded (102MB)
+✅ Script uploaded
+✅ Dataset extracted
+✅ Training started
+
+Step 2: Monitor Training
+$ ssh root@<sshhostname> 'tail -f /content/training*.log'
+Epoch 1/30: Val Acc = 78.5%
+Epoch 2/30: Val Acc = 85.2%
+...
+✅ TRAINING COMPLETE! Best Val Acc = 94.3%
+
+Step 3: Download & Deploy
+$ ./scripts/colab_download_model.sh xxx.trycloudflare.com \
+    /content/v6_stage2_corrected_best.pth
+✅ Model downloaded (17MB)
+✅ Old model backed up to archive/2026-03-21/
+✅ Training artifacts downloaded
+✅ API server restarted
+✅ Server healthy on localhost:8000
+```
+
+#### Manual Workflow (If Scripts Fail)
+
 ```
 1. Start Colab with cloudflared tunnel
-2. Update ~/.ssh/config with new hostname
-3. Deploy SSH key: ./scripts/deploy_ssh_key.sh colab-gpu
-4. Sync code: ./scripts/colab_workflow.sh colab-gpu sync
-5. Upload data (rsync/scp)
-6. Run training
-7. Download results
-8. Cleanup remote (optional)
+2. SSH password (first time): retinrix
+3. Deploy SSH key:
+   cat ~/.ssh/id_colab.pub | ssh root@xxx.trycloudflare.com \
+     "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+4. Upload data:
+   scp dataset.tar.gz root@xxx.trycloudflare.com:/content/
+5. Extract and run:
+   ssh root@xxx.trycloudflare.com "cd /content && tar -xzf dataset.tar.gz"
+   ssh root@xxx.trycloudflare.com "cd /content && python train.py"
+6. Monitor until complete
+7. Download model:
+   scp root@xxx.trycloudflare.com:/content/model.pth \
+     ~/retin-verify/models/classification/
+8. Restart local server
+```
+
+#### Status Summary Template
+
+```
+Step                      Status
+1. SSH Config            ✅ Done
+2. Deploy SSH Key        ✅ Done  
+3. Upload Dataset        ✅ Done (102MB)
+4. Upload Script         ✅ Done
+5. Extract Dataset       ✅ Done (584 images)
+6. Run Training          ✅ RUNNING NOW
+7. Monitor               ✅ Auto-monitoring
+8. Download              ⏳ Auto-when ready
+9. Deploy Model          ⏳ Auto-when ready
+10. Restart Server       ⏳ Auto-when ready
+
+Training Progress
+Status: RUNNING on Colab GPU (T4)
+Epoch 12/30: Val Acc = 92.4% ✅ (Best model saved!)
+Front Acc: 94.2% | Back Acc: 90.1%
+Dataset: 584 train, 81 val images
+Estimated time remaining: ~15 minutes
+```
+
+### 5.3 Script Parameters Reference
+
+#### `colab_deploy_train.sh`
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `hostname` | ✅ Yes | - | Colab SSH hostname (e.g., xxx.trycloudflare.com) |
+| `dataset_path` | ✅ Yes | - | Path to dataset tarball (.tar.gz) |
+| `script_path` | ❌ No | `colab/v6_stage2_retrain_colab.py` | Path to training script |
+| `remote_dir` | ❌ No | `/content` | Remote directory on Colab |
+
+**Examples:**
+```bash
+# Minimal - Stage 2 retraining
+./scripts/colab_deploy_train.sh \
+    xxx.trycloudflare.com \
+    ~/retin-verify/training_data/v6_stage2_corrected.tar.gz
+
+# Full parameters - Custom training
+./scripts/colab_deploy_train.sh \
+    xxx.trycloudflare.com \
+    ~/data/custom_dataset.tar.gz \
+    ~/scripts/my_training_script.py \
+    /content/my_project
+```
+
+#### `colab_download_model.sh`
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `hostname` | ✅ Yes | - | Colab SSH hostname |
+| `remote_model_path` | ✅ Yes | - | Path to model on Colab |
+| `local_model_path` | ❌ No | Auto-detected | Where to save locally |
+| `restart_server` | ❌ No | `yes` | Whether to restart API server |
+
+**Examples:**
+```bash
+# Auto-detect local path and restart
+./scripts/colab_download_model.sh \
+    xxx.trycloudflare.com \
+    /content/v6_stage2_corrected_best.pth
+
+# Custom local path, no restart
+./scripts/colab_download_model.sh \
+    xxx.trycloudflare.com \
+    /content/model.pth \
+    ~/models/my_experiment.pth \
+    no
+```
+
+### 5.4 Customization Guide
+
+#### Creating Custom Training Scripts
+
+Your training script should:
+1. Accept dataset from a configurable path (use `/content` or argument)
+2. Save model with timestamp: `model_$(date +%Y%m%d_%H%M%S).pth`
+3. Log to file for monitoring: `> training.log 2>&1`
+4. Save best model: `best_model.pth`
+
+**Template:**
+```python
+#!/usr/bin/env python3
+"""Custom training script for Colab."""
+
+import torch
+import sys
+from pathlib import Path
+
+# Configurable paths
+DATA_DIR = sys.argv[1] if len(sys.argv) > 1 else "/content/dataset"
+OUTPUT_DIR = sys.argv[2] if len(sys.argv) > 2 else "/content"
+
+# Training code here...
+# Save model
+model_path = f"{OUTPUT_DIR}/best_model.pth"
+torch.save(model.state_dict(), model_path)
+print(f"Model saved to: {model_path}")
+```
+
+#### Using with Different Projects
+
+These scripts are generic and work with any project:
+
+```bash
+# For object detection project
+./scripts/colab_deploy_train.sh \
+    xxx.trycloudflare.com \
+    ~/projects/detection/data/dataset.tar.gz \
+    ~/projects/detection/train.py
+
+# For NLP project  
+./scripts/colab_deploy_train.sh \
+    xxx.trycloudflare.com \
+    ~/projects/nlp/data/corpus.tar.gz \
+    ~/projects/nlp/train_transformer.py
 ```
 
 ---

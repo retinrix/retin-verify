@@ -204,7 +204,7 @@ class AlgerianIdentityGenerator:
         return {'line1': line1, 'line2': line2}
     
     def _generate_cnie_mrz(self, identity: Dict) -> Dict[str, str]:
-        """Generate CNIE MRZ (simplified ID-1 format)."""
+        """Generate CNIE MRZ (3-line TD1 format for CNIE back)."""
         id_num = identity['national_id'][:9]
         surname = identity['surname'].upper().replace(' ', '<')
         given_names = identity['given_names'].upper().replace(' ', '<')
@@ -213,13 +213,30 @@ class AlgerianIdentityGenerator:
         expiry_str = identity['date_of_expiry'].strftime('%y%m%d')
         sex = identity['sex']
         
-        line1 = f"I<DZA{id_num}<<<<<<<<<<<<<<<{surname}<<{given_names}"
+        # Line 1: Document type + Issuing state + Document number + check digit
+        # IDDZA + document number (9 digits) + check digit
+        doc_check = self.calculate_mrz_check_digit(id_num)
+        line1 = f"IDDZA{id_num}{doc_check}<<<<<<<<<<<<<<<"
         line1 = line1[:30]
         
-        line2 = f"{dob_str}{sex}{expiry_str}DZA<<<<<<<<<<<0"
+        # Line 2: DOB + check + Sex + Expiry + check + Nationality + optional data
+        dob_check = self.calculate_mrz_check_digit(dob_str)
+        expiry_check = self.calculate_mrz_check_digit(expiry_str)
+        
+        # Composite check digit for line 1-2 data
+        composite_data = f"{id_num}{doc_check}{dob_str}{dob_check}{expiry_str}{expiry_check}"
+        composite_check = self.calculate_mrz_check_digit(composite_data)
+        
+        line2 = f"{dob_str}{dob_check}{sex}{expiry_str}{expiry_check}DZA<<<<<<<<<<{composite_check}"
         line2 = line2[:30]
         
-        return {'line1': line1, 'line2': line2}
+        # Line 3: Surname << Given Names, padded with '<' to 30 chars
+        name_field = f"{surname}<<{given_names}"
+        line3 = f"{name_field:<30}"  # First pad with spaces
+        line3 = line3.replace(' ', '<')  # Replace spaces with '<' for MRZ format
+        line3 = line3[:30]
+        
+        return {'line1': line1, 'line2': line2, 'line3': line3}
     
     def generate_identity(self, doc_type: str = 'passport') -> Dict:
         """Generate a complete synthetic identity with bilingual names."""

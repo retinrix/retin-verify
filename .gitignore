@@ -83,9 +83,40 @@ tmp/
 temp/
 *.tmp
 
-# Keep these empty directories
-!data/raw/.gitkeep
-!data/processed/.gitkeep
+# Training data (large datasets)
+training_data/
+!training_data/.gitkeep
+
+# Models directory (large files)
+models/*/
+!models/.gitkeep
 !models/classification/.gitkeep
 !models/detection/.gitkeep
 !models/extraction/.gitkeep
+
+# Synthetic data outputs
+synthetic/data/
+synthetic/output/
+!synthetic/data/.gitkeep
+!synthetic/output/.gitkeep
+
+# Colab / temporary
+colab/
+
+# Kimi session files (personal)
+.kimi/
+SESSION_RESUME.txt
+
+# Secrets
+SECRETS.md
+*.pem
+*.key
+.env
+
+# Calibration outputs
+calibration_output/
+anonymized_output/
+
+# Keep these empty directories
+!data/raw/.gitkeep
+!data/processed/.gitkeep

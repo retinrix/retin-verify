@@ -11,7 +11,7 @@ from pathlib import Path
 # SSH host - update with your Colab tunnel
 # Get this from your Colab notebook tunnel output (Cloudflare/ngrok)
 # Example: "abc123.trycloudflare.com" or "xxx.ngrok.io"
-HOST = "YOUR_COLAB_HOST_HERE"  # <-- EDIT THIS LINE with your actual host
+HOST = "montreal-blog-achieving-reid.trycloudflare.com"  # <-- EDIT THIS LINE with your actual host
 
 def run_cmd(cmd, check=True):
     """Run shell command"""

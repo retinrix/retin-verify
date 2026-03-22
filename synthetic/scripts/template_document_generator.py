@@ -61,11 +61,12 @@ class TemplateDocumentGenerator:
             'template_file': 'cnie_back_template.jpg',
             'aspect_ratio': 85.6/54,
             'fields': {
-                'address': {'rel_bbox': [0.22, 0.20, 0.65, 0.08], 'font_scale': 0.75, 'color': (60, 60, 80)},
-                'father_name': {'rel_bbox': [0.22, 0.32, 0.45, 0.04], 'font_scale': 0.75, 'color': (60, 60, 80)},
-                'mother_name': {'rel_bbox': [0.22, 0.37, 0.45, 0.04], 'font_scale': 0.75, 'color': (60, 60, 80)},
-                'mrz_line1': {'rel_bbox': [0.05, 0.71, 0.90, 0.04], 'font_scale': 0.65, 'font': 'ocr_b', 'color': (40, 40, 40)},
-                'mrz_line2': {'rel_bbox': [0.05, 0.755, 0.90, 0.04], 'font_scale': 0.65, 'font': 'ocr_b', 'color': (40, 40, 40)},
+                'surname': {'rel_bbox': [0.13, 0.06, 0.40, 0.07], 'font_scale': 0.95, 'color': (50, 50, 70), 'anchor': 'lm', 'justification': 'left'},
+                'given_names': {'rel_bbox': [0.13, 0.13, 0.50, 0.07], 'font_scale': 0.90, 'color': (50, 50, 70), 'anchor': 'lm', 'justification': 'left'},
+                'birth_year': {'rel_bbox': [0.38, 0.28, 0.12, 0.08], 'font_scale': 1.0, 'color': (50, 50, 70), 'anchor': 'cm', 'justification': 'center'},
+                'mrz_line1': {'rel_bbox': [0.05, 0.70, 0.90, 0.055], 'font_scale': 0.95, 'font': 'ocr_b', 'color': (40, 40, 40), 'anchor': 'cm', 'justification': 'left'},
+                'mrz_line2': {'rel_bbox': [0.05, 0.755, 0.90, 0.055], 'font_scale': 0.95, 'font': 'ocr_b', 'color': (40, 40, 40), 'anchor': 'cm', 'justification': 'left'},
+                'mrz_line3': {'rel_bbox': [0.05, 0.81, 0.90, 0.055], 'font_scale': 0.95, 'font': 'ocr_b', 'color': (40, 40, 40), 'anchor': 'cm', 'justification': 'left'},
             },
         }
     }
@@ -75,12 +76,26 @@ class TemplateDocumentGenerator:
         template_dir: Path,
         output_dir: Path,
         config_file: Optional[Path] = None,
+        config_front: Optional[Path] = None,
+        config_back: Optional[Path] = None,
         backgrounds_dir: Optional[Path] = None,
         seed: Optional[int] = None,
         arabic_font_path: Optional[Path] = None,
         face_photos_dir: Optional[Path] = None
     ):
-        """Initialize the generator with optional config file and Arabic font."""
+        """Initialize the generator with optional config file and Arabic font.
+        
+        Args:
+            template_dir: Directory containing template images
+            output_dir: Output directory for generated samples
+            config_file: Generic config file (backward compatibility)
+            config_front: Specific config for CNIE front
+            config_back: Specific config for CNIE back
+            backgrounds_dir: Directory containing background images
+            seed: Random seed for reproducibility
+            arabic_font_path: Path to Arabic TrueType font file
+            face_photos_dir: Path to VGGFace2 dataset directory
+        """
         self.template_dir = Path(template_dir)
         self.output_dir = Path(output_dir)
         self.backgrounds_dir = Path(backgrounds_dir) if backgrounds_dir else None
@@ -93,11 +108,29 @@ class TemplateDocumentGenerator:
         # Initialize document specs
         self.DOCUMENT_SPECS = self.DEFAULT_DOCUMENT_SPECS.copy()
         
-        # Load custom config if provided
-        if config_file and Path(config_file).exists():
+        # Load custom configs if provided
+        configs_loaded = []
+        
+        # Load front config if provided
+        if config_front and Path(config_front).exists():
+            print(f"📂 Loading FRONT config from: {config_front}")
+            self._load_config_for_doc_type(config_front, 'cnie_front')
+            configs_loaded.append('front')
+        
+        # Load back config if provided
+        if config_back and Path(config_back).exists():
+            print(f"📂 Loading BACK config from: {config_back}")
+            self._load_config_for_doc_type(config_back, 'cnie_back')
+            configs_loaded.append('back')
+        
+        # Fallback to generic config for backward compatibility
+        if not configs_loaded and config_file and Path(config_file).exists():
             print(f"📂 Loading config from: {config_file}")
             self._load_config(config_file)
-            print(f"✅ Loaded custom configuration from: {config_file}")
+            configs_loaded.append('generic')
+        
+        if configs_loaded:
+            print(f"✅ Loaded configurations: {configs_loaded}")
         else:
             print("⚠️ No config file provided or file not found. Using defaults.")
         
@@ -116,8 +149,14 @@ class TemplateDocumentGenerator:
         self.arabic_font = None
         if PIL_AVAILABLE:
             if arabic_font_path is None:
-                # Try common locations
+                # Try common locations - check relative to script location
+                script_dir = Path(__file__).parent.parent  # synthetic/scripts/ -> synthetic/
                 candidates = [
+                    script_dir / "fonts" / "ScheherazadeNew-regular.ttf",
+                    script_dir / "fonts" / "NotoNaskhArabic-Regular.ttf",
+                    Path("synthetic/fonts/ScheherazadeNew-regular.ttf"),
+                    Path("synthetic/fonts/NotoNaskhArabic-Regular.ttf"),
+                    Path("fonts/ScheherazadeNew-regular.ttf"),
                     Path("fonts/NotoNaskhArabic-Regular.ttf"),
                     Path("/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf"),
                 ]
@@ -162,6 +201,7 @@ class TemplateDocumentGenerator:
                 
             elif 'fields' in config:
                 # GUI tool export format - convert to document spec
+                print(f"📋 Detected GUI config format with fields: {list(config.get('fields', {}).keys())}")
                 self._convert_gui_config(config)
                 
             else:
@@ -183,7 +223,59 @@ class TemplateDocumentGenerator:
             print(f"❌ Error loading config file: {e}")
             raise
 
-    def _convert_gui_config(self, config: Dict):
+    def _load_config_for_doc_type(self, config_file: Path, doc_type: str):
+        """Load config and force it to a specific document type.
+        
+        This is used for paired generation where we have separate config files
+        for front and back.
+        """
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            if 'fields' not in config:
+                print(f"⚠️ Config {config_file} does not contain 'fields'")
+                return
+            
+            # Convert fields to the proper format
+            fields = {}
+            for field_name, field_data in config['fields'].items():
+                fields[field_name] = {
+                    'rel_bbox': field_data.get('rel_bbox', [0.1, 0.1, 0.2, 0.03]),
+                    'font_scale': field_data.get('font_scale', 0.7),
+                    'color': field_data.get('color', [0, 0, 0]),
+                    'anchor': field_data.get('anchor', 'lt'),
+                    'justification': field_data.get('justification', 'left'),
+                    'arabic': field_data.get('arabic', False),
+                    'offset_y': field_data.get('offset_y', 0)
+                }
+            
+            # Create spec for the specific doc type
+            template_file = f'{doc_type}_template.jpg'
+            aspect_ratio = 85.6/54 if doc_type == 'cnie_back' else 85.6/53.98
+            
+            spec = {
+                'template_file': template_file,
+                'aspect_ratio': aspect_ratio,
+                'fields': fields,
+            }
+            
+            # Add optional fields
+            if 'card_region' in config and config['card_region'] is not None:
+                spec['card_region'] = config['card_region']
+            if 'photo_bbox' in config and config['photo_bbox'] is not None:
+                spec['photo_bbox'] = config['photo_bbox']
+            if 'photo_placeholders' in config:
+                spec['photo_placeholders'] = config['photo_placeholders']
+            
+            self.DOCUMENT_SPECS[doc_type] = spec
+            print(f"✅ Loaded '{doc_type}' config from: {config_file}")
+            
+        except Exception as e:
+            print(f"❌ Error loading config file for {doc_type}: {e}")
+            raise
+
+    def _convert_gui_config(self, config: Dict, doc_type: str = 'cnie_front'):
         """Convert GUI tool export format to document spec format."""
         fields = {}
         
@@ -202,9 +294,28 @@ class TemplateDocumentGenerator:
                 'offset_y': offset_y
             }
         
+        # Auto-detect doc type based on fields present
+        if 'mrz_line3' in fields and 'birth_year' in fields:
+            # CNIE Back has mrz_line3 and birth_year
+            doc_type = 'cnie_back'
+            template_file = 'cnie_back_template.jpg'
+            aspect_ratio = 85.6/54
+            print(f"🔍 Auto-detected doc_type: {doc_type} (has mrz_line3 + birth_year)")
+        elif 'national_id' in fields or 'personal_id' in fields:
+            # CNIE Front has national_id or personal_id
+            doc_type = 'cnie_front'
+            template_file = 'cnie_front_template.jpg'
+            aspect_ratio = 85.6/53.98
+            print(f"🔍 Auto-detected doc_type: {doc_type} (has national_id/personal_id)")
+        else:
+            # Default to provided doc_type or cnie_front
+            template_file = f'{doc_type}_template.jpg'
+            aspect_ratio = 85.6/54 if doc_type == 'cnie_back' else 85.6/53.98
+            print(f"🔍 Using default doc_type: {doc_type}")
+        
         spec = {
-            'template_file': 'cnie_front_template.jpg',
-            'aspect_ratio': 85.6/53.98,
+            'template_file': template_file,
+            'aspect_ratio': aspect_ratio,
             'fields': fields,
         }
         
@@ -222,18 +333,39 @@ class TemplateDocumentGenerator:
             spec['photo_placeholders'] = config['photo_placeholders']
             print(f"🖼️ Added {len(config['photo_placeholders'])} photo placeholder(s)")
         
-        self.DOCUMENT_SPECS['cnie_front'] = spec
-        print("🔄 Converted GUI config to 'cnie_front' spec")
+        self.DOCUMENT_SPECS[doc_type] = spec
+        print(f"🔄 Converted GUI config to '{doc_type}' spec")
     
     def _load_templates(self):
         """Load document templates."""
         template_real_dir = self.template_dir / 'real'
         print(f"\n🔍 Looking for templates in: {template_real_dir}")
         
+        # Try to resolve the path if it doesn't exist as-is
+        if not template_real_dir.exists():
+            # Try resolving as absolute
+            if not template_real_dir.is_absolute():
+                # Try relative to current working directory
+                cwd_path = Path.cwd() / template_real_dir
+                if cwd_path.exists():
+                    template_real_dir = cwd_path
+                    self.template_dir = cwd_path.parent
+                else:
+                    # Try relative to script location
+                    script_dir = Path(__file__).parent
+                    script_path = script_dir / '..' / '..' / template_real_dir
+                    script_path = script_path.resolve()
+                    if script_path.exists():
+                        template_real_dir = script_path
+                        self.template_dir = template_real_dir.parent
+        
         if not template_real_dir.exists():
             print(f"❌ Template directory does not exist: {template_real_dir}")
+            print(f"   Tried: {Path.cwd() / self.template_dir / 'real'}")
+            print(f"   Current working directory: {Path.cwd()}")
             return
         
+        # First, try to load templates defined in DOCUMENT_SPECS
         for doc_type, spec in self.DOCUMENT_SPECS.items():
             template_file = spec['template_file']
             template_path = template_real_dir / template_file
@@ -249,6 +381,44 @@ class TemplateDocumentGenerator:
             else:
                 print(f"❌ File not found")
         
+        # Auto-discover additional templates (cnie_front, etc.)
+        # Look for templates that have a corresponding config file
+        config_extensions = ['_auto_config.json', '_config.json', '_custom.json']
+        for config_file in template_real_dir.glob('*_config.json'):
+            # Extract doc_type from config filename (e.g., cnie_auto_config.json -> cnie_front)
+            config_stem = config_file.stem  # e.g., 'cnie_auto_config'
+            
+            # Try to determine doc_type from the config content
+            try:
+                with open(config_file, 'r') as f:
+                    config_data = json.load(f)
+                
+                # If config has document type keys, use those
+                for doc_type in config_data.keys():
+                    if doc_type in self.templates:
+                        continue  # Already loaded
+                    
+                    spec = config_data[doc_type]
+                    template_file = spec.get('template_file')
+                    if template_file:
+                        template_path = template_real_dir / template_file
+                        print(f"  - {doc_type} (from {config_file.name}): {template_file} -> ", end="")
+                        
+                        if template_path.exists():
+                            img = cv2.imread(str(template_path))
+                            if img is not None:
+                                self.templates[doc_type] = img
+                                # Also update DOCUMENT_SPECS
+                                if doc_type not in self.DOCUMENT_SPECS:
+                                    self.DOCUMENT_SPECS[doc_type] = spec
+                                print(f"✅ Loaded ({img.shape[1]}x{img.shape[0]})")
+                            else:
+                                print(f"❌ Could not load image (OpenCV error)")
+                        else:
+                            print(f"❌ File not found")
+            except Exception as e:
+                print(f"⚠️  Error loading config {config_file}: {e}")
+        
         print(f"\n📊 Templates loaded: {list(self.templates.keys())}")
     
     def _load_backgrounds(self):
@@ -259,18 +429,38 @@ class TemplateDocumentGenerator:
             print(f"✅ Loaded {len(self.backgrounds)} backgrounds")
     
     def generate_synthetic_face(self, size: Tuple[int, int], sex: str = 'M') -> np.ndarray:
-        """Generate a synthetic face placeholder."""
+        """Generate a synthetic face placeholder with more realistic features."""
         h, w = size
-        # Create skin-tone base
-        base_color = np.array([210, 170, 140], dtype=np.uint8) if sex == 'M' else np.array([220, 180, 160], dtype=np.uint8)
+        # Create skin-tone base (BGR format)
+        base_color = np.array([180, 150, 120], dtype=np.uint8) if sex == 'M' else np.array([200, 170, 150], dtype=np.uint8)
         face = np.ones((h, w, 3), dtype=np.uint8) * base_color
         
+        # Add gradient for depth (darker at edges)
+        y_grad = np.linspace(0.7, 1.0, h).reshape(-1, 1, 1)
+        face = (face * y_grad).astype(np.uint8)
+        
         # Add noise for texture
-        noise = np.random.normal(0, 10, (h, w, 3)).astype(np.int16)
+        noise = np.random.normal(0, 8, (h, w, 3)).astype(np.int16)
         face = np.clip(face.astype(np.int16) + noise, 0, 255).astype(np.uint8)
         
-        # Add slight blur
-        face = cv2.GaussianBlur(face, (5, 5), 1.0)
+        # Draw simple face features (eyes and mouth)
+        eye_y = int(h * 0.35)
+        eye_x1 = int(w * 0.3)
+        eye_x2 = int(w * 0.7)
+        eye_size = max(3, int(min(w, h) * 0.08))
+        
+        # Eyes (dark circles)
+        cv2.circle(face, (eye_x1, eye_y), eye_size, (60, 50, 40), -1)
+        cv2.circle(face, (eye_x2, eye_y), eye_size, (60, 50, 40), -1)
+        
+        # Mouth (simple line)
+        mouth_y = int(h * 0.7)
+        mouth_x1 = int(w * 0.35)
+        mouth_x2 = int(w * 0.65)
+        cv2.line(face, (mouth_x1, mouth_y), (mouth_x2, mouth_y), (80, 60, 50), max(2, int(h*0.03)))
+        
+        # Add slight blur to soften
+        face = cv2.GaussianBlur(face, (5, 5), 1.5)
         
         return face
     
@@ -481,31 +671,46 @@ class TemplateDocumentGenerator:
         return image
     
     def apply_perspective_transform(self, image: np.ndarray, 
-                                    max_angle: float = 25.0) -> Tuple[np.ndarray, np.ndarray]:
-        """Apply random perspective transformation."""
+                                    max_angle: float = 25.0,
+                                    fixed_matrix: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
+        """Apply perspective transformation.
+        
+        Args:
+            image: Input image
+            max_angle: Maximum rotation angle for random transform
+            fixed_matrix: If provided, use this matrix instead of generating random one
+            
+        Returns:
+            Tuple of (transformed_image, transformation_matrix)
+        """
         h, w = image.shape[:2]
         
-        # Random angles
-        pitch = random.uniform(-max_angle, max_angle)
-        yaw = random.uniform(-max_angle * 0.7, max_angle * 0.7)
-        roll = random.uniform(-10, 10)
+        if fixed_matrix is not None:
+            # Use provided fixed matrix (for paired generation)
+            M = fixed_matrix
+        else:
+            # Generate random transformation
+            pitch = random.uniform(-max_angle, max_angle)
+            yaw = random.uniform(-max_angle * 0.7, max_angle * 0.7)
+            roll = random.uniform(-10, 10)
+            
+            # Calculate transformation matrix
+            src_pts = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
+            
+            # Apply perspective distortion
+            dx = int(w * np.tan(np.radians(yaw)) * 0.3)
+            dy = int(h * np.tan(np.radians(pitch)) * 0.3)
+            dr = int(w * np.tan(np.radians(roll)) * 0.1)
+            
+            dst_pts = np.float32([
+                [max(0, dx + dr), max(0, dy - dr)],
+                [min(w, w + dx - dr), max(0, dy + dr)],
+                [min(w, w - dx - dr), min(h, h - dy + dr)],
+                [max(0, -dx + dr), min(h, h + dy - dr)]
+            ])
+            
+            M = cv2.getPerspectiveTransform(src_pts, dst_pts)
         
-        # Calculate transformation matrix
-        src_pts = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
-        
-        # Apply perspective distortion
-        dx = int(w * np.tan(np.radians(yaw)) * 0.3)
-        dy = int(h * np.tan(np.radians(pitch)) * 0.3)
-        dr = int(w * np.tan(np.radians(roll)) * 0.1)
-        
-        dst_pts = np.float32([
-            [max(0, dx + dr), max(0, dy - dr)],
-            [min(w, w + dx - dr), max(0, dy + dr)],
-            [min(w, w - dx - dr), min(h, h - dy + dr)],
-            [max(0, -dx + dr), min(h, h + dy - dr)]
-        ])
-        
-        M = cv2.getPerspectiveTransform(src_pts, dst_pts)
         transformed = cv2.warpPerspective(image, M, (w, h), borderMode=cv2.BORDER_CONSTANT, 
                                           borderValue=(255, 255, 255))
         
@@ -604,15 +809,28 @@ class TemplateDocumentGenerator:
         photo_placeholders = spec.get('photo_placeholders', {})
         if photo_placeholders and card_region:
             print(f"🖼️ Rendering {len(photo_placeholders)} photo placeholder(s)...")
+            
+            # Pick one face per identity (reused for all placeholders on this document)
+            cached_face = None
+            cached_identity_id = None
+            
             for placeholder_id, placeholder_config in photo_placeholders.items():
                 if self.face_manager and self.photo_renderer:
                     # Use real face from VGGFace2
                     try:
-                        template, photo_ann = self.photo_renderer.render_placeholder(
+                        # Pick a face once and reuse for all placeholders
+                        if cached_face is None:
+                            cached_face, cached_identity_id = self.face_manager.get_random_face(
+                                identity.get('sex', 'M')
+                            )
+                            print(f"  📸 Selected face identity: {cached_identity_id}")
+                        
+                        template, photo_ann = self.photo_renderer.render_placeholder_with_face(
                             template,
                             {**placeholder_config, 'id': placeholder_id},
                             card_region,
-                            identity.get('sex', 'M')
+                            cached_face,
+                            cached_identity_id
                         )
                         annotations.append(photo_ann)
                         print(f"  ✅ Rendered '{placeholder_id}' with real face")
@@ -704,6 +922,18 @@ class TemplateDocumentGenerator:
 
                 if isinstance(value, datetime):
                     value = value.strftime('%d/%m/%Y')
+                
+                # Special handling for birth_year field (CNIE back)
+                if field_name == 'birth_year' and not value:
+                    dob = identity.get('date_of_birth')
+                    if isinstance(dob, datetime):
+                        value = str(dob.year)
+                    else:
+                        # Try to parse from string
+                        try:
+                            value = str(datetime.strptime(dob, '%d/%m/%Y').year)
+                        except:
+                            value = ''
 
                 if value:
                     font_type = field_spec.get('font', 'regular')
@@ -792,8 +1022,14 @@ class TemplateDocumentGenerator:
         
         return template
     
-    def generate_sample(self, doc_type: str, sample_id: int) -> Dict:
-        """Generate a single synthetic sample with augmentations."""
+    def generate_sample(self, doc_type: str, sample_id: int, fast_preview: bool = False) -> Dict:
+        """Generate a single synthetic sample with augmentations.
+        
+        Args:
+            doc_type: Type of document to generate
+            sample_id: ID for this sample
+            fast_preview: If True, skip expensive augmentations for faster preview
+        """
         if doc_type == 'carte_grise':
             identity = self.identity_generator.generate_carte_grise_identity()
         else:
@@ -801,22 +1037,30 @@ class TemplateDocumentGenerator:
         
         document, annotations = self.render_document(doc_type, identity)
         
-        # Apply augmentations
-        document, transform_matrix = self.apply_perspective_transform(document)
-        document = self.apply_lighting_variation(document)
-        document = self.apply_blur_and_noise(document)
-        
-        doc_h, doc_w = document.shape[:2]
-        document_bbox = [0, 0, doc_w, doc_h]
-        document = self.add_background(document, document_bbox)
-        
-        transformed_annotations = self._transform_annotations(annotations, transform_matrix, doc_w, doc_h)
+        if fast_preview:
+            # Fast path: skip expensive augmentations for preview
+            doc_h, doc_w = document.shape[:2]
+            transform_matrix = np.eye(3, dtype=np.float32)  # Identity matrix
+            transformed_annotations = annotations
+        else:
+            # Full path: apply all augmentations
+            document, transform_matrix = self.apply_perspective_transform(document)
+            document = self.apply_lighting_variation(document)
+            document = self.apply_blur_and_noise(document)
+            
+            doc_h, doc_w = document.shape[:2]
+            document_bbox = [0, 0, doc_w, doc_h]
+            document = self.add_background(document, document_bbox)
+            
+            transformed_annotations = self._transform_annotations(annotations, transform_matrix, doc_w, doc_h)
         
         sample_dir = self.output_dir / doc_type / f"{sample_id:06d}"
         sample_dir.mkdir(parents=True, exist_ok=True)
         
         image_path = sample_dir / "image.jpg"
-        cv2.imwrite(str(image_path), document, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        # Use lower quality for preview to speed up encoding
+        jpeg_quality = 85 if fast_preview else 95
+        cv2.imwrite(str(image_path), document, [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality])
         
         annotation_data = {
             'sample_id': sample_id,
@@ -883,7 +1127,7 @@ class TemplateDocumentGenerator:
                 result[key] = value
         return result
     
-    def generate_dataset(self, doc_type: str, num_samples: int, start_id: int = 0) -> List[Path]:
+    def generate_dataset(self, doc_type: str, num_samples: int, start_id: int = 0, fast_preview: bool = False) -> List[Path]:
         """Generate a complete dataset for a document type."""
         if doc_type not in self.templates:
             print(f"⚠️ No template for {doc_type}, skipping...")
@@ -895,13 +1139,144 @@ class TemplateDocumentGenerator:
         for i in range(num_samples):
             sample_id = start_id + i
             try:
-                self.generate_sample(doc_type, sample_id)
+                self.generate_sample(doc_type, sample_id, fast_preview=fast_preview)
                 generated.append(self.output_dir / doc_type / f"{sample_id:06d}" / "image.jpg")
                 if (i + 1) % 10 == 0:
                     print(f"  ✅ Generated {i+1}/{num_samples}")
             except Exception as e:
                 print(f"  ❌ Error generating sample {sample_id}: {e}")
         
+        return generated
+    
+    def generate_paired_cnie_sample(self, pair_id: int, fast_preview: bool = False) -> Dict:
+        """Generate a paired CNIE front and back sample with the same identity.
+        
+        Args:
+            pair_id: ID for this identity pair
+            fast_preview: If True, skip expensive augmentations
+            
+        Returns:
+            Dict with paths to both front and back images and their annotations
+        """
+        # Generate a single identity for both front and back
+        identity = self.identity_generator.generate_identity('cnie')
+        
+        # Generate CNIE Front
+        if 'cnie_front' not in self.templates:
+            raise ValueError("CNIE front template not available")
+        
+        front_doc, front_annotations = self.render_document('cnie_front', identity)
+        
+        # Generate CNIE Back
+        if 'cnie_back' not in self.templates:
+            raise ValueError("CNIE back template not available")
+            
+        back_doc, back_annotations = self.render_document('cnie_back', identity)
+        
+        # Apply augmentations (same transform for both to maintain consistency)
+        if fast_preview:
+            transform_matrix = np.eye(3, dtype=np.float32)
+            front_transformed = front_doc
+            back_transformed = back_doc
+            front_ann = front_annotations
+            back_ann = back_annotations
+        else:
+            # Apply same transform to both documents
+            front_transformed, transform_matrix = self.apply_perspective_transform(front_doc)
+            back_transformed, _ = self.apply_perspective_transform(back_doc, fixed_matrix=transform_matrix)
+            
+            # Apply other augmentations
+            front_transformed = self.apply_lighting_variation(front_transformed)
+            front_transformed = self.apply_blur_and_noise(front_transformed)
+            
+            back_transformed = self.apply_lighting_variation(back_transformed)
+            back_transformed = self.apply_blur_and_noise(back_transformed)
+            
+            # Add backgrounds
+            doc_h, doc_w = front_transformed.shape[:2]
+            front_transformed = self.add_background(front_transformed, [0, 0, doc_w, doc_h])
+            back_transformed = self.add_background(back_transformed, [0, 0, doc_w, doc_h])
+            
+            # Transform annotations
+            front_ann = self._transform_annotations(front_annotations, transform_matrix, doc_w, doc_h)
+            back_ann = self._transform_annotations(back_annotations, transform_matrix, doc_w, doc_h)
+        
+        # Create output directories
+        pair_dir = self.output_dir / "cnie_pairs" / f"{pair_id:06d}"
+        front_dir = pair_dir / "front"
+        back_dir = pair_dir / "back"
+        front_dir.mkdir(parents=True, exist_ok=True)
+        back_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save images
+        jpeg_quality = 85 if fast_preview else 95
+        front_path = front_dir / "image.jpg"
+        back_path = back_dir / "image.jpg"
+        cv2.imwrite(str(front_path), front_transformed, [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality])
+        cv2.imwrite(str(back_path), back_transformed, [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality])
+        
+        # Create paired annotation
+        pair_annotation = {
+            'pair_id': pair_id,
+            'identity': self._serialize_identity(identity),
+            'front': {
+                'document_type': 'cnie_front',
+                'image_path': str(front_path.relative_to(self.output_dir)),
+                'image_size': [front_transformed.shape[1], front_transformed.shape[0]],
+                'bounding_boxes': front_ann
+            },
+            'back': {
+                'document_type': 'cnie_back',
+                'image_path': str(back_path.relative_to(self.output_dir)),
+                'image_size': [back_transformed.shape[1], back_transformed.shape[0]],
+                'bounding_boxes': back_ann
+            },
+            'transform_matrix': transform_matrix.tolist(),
+            'generated_at': datetime.now().isoformat()
+        }
+        
+        annotation_path = pair_dir / "annotations.json"
+        with open(annotation_path, 'w', encoding='utf-8') as f:
+            json.dump(pair_annotation, f, indent=2, ensure_ascii=False)
+        
+        return {
+            'pair_id': pair_id,
+            'front_image': front_path,
+            'back_image': back_path,
+            'annotation': annotation_path
+        }
+    
+    def generate_paired_cnie_dataset(self, num_pairs: int, start_id: int = 0, fast_preview: bool = False) -> List[Dict]:
+        """Generate a dataset of paired CNIE front/back samples.
+        
+        Args:
+            num_pairs: Number of identity pairs to generate
+            start_id: Starting ID for pairs
+            fast_preview: If True, skip expensive augmentations
+            
+        Returns:
+            List of generation results
+        """
+        if 'cnie_front' not in self.templates or 'cnie_back' not in self.templates:
+            print("⚠️ Both CNIE front and back templates required for paired generation")
+            return []
+        
+        generated = []
+        print(f"📄 Generating {num_pairs} paired CNIE samples (front + back)...")
+        
+        for i in range(num_pairs):
+            pair_id = start_id + i
+            try:
+                result = self.generate_paired_cnie_sample(pair_id, fast_preview=fast_preview)
+                generated.append(result)
+                if (i + 1) % 10 == 0:
+                    print(f"  ✅ Generated {i+1}/{num_pairs} pairs")
+            except Exception as e:
+                print(f"  ❌ Error generating pair {pair_id}: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        print(f"\n✅ Paired dataset generation complete. Output: {self.output_dir}/cnie_pairs")
         return generated
 
 
@@ -912,8 +1287,12 @@ def main():
     parser.add_argument('--output-dir', type=Path, default=Path('data/synthetic'),
                        help='Output directory for generated samples')
     parser.add_argument('--config', type=Path, default=None,
-                       help='JSON configuration file for field positions')
-    parser.add_argument('--doc-type', choices=['passport', 'cnie_front', 'cnie_back', 'all'], 
+                       help='JSON configuration file for field positions (generic)')
+    parser.add_argument('--config-front', type=Path, default=None,
+                       help='JSON configuration file for CNIE front')
+    parser.add_argument('--config-back', type=Path, default=None,
+                       help='JSON configuration file for CNIE back')
+    parser.add_argument('--doc-type', choices=['passport', 'cnie_front', 'cnie_back', 'cnie_paired', 'all'], 
                        default='all', help='Document type to generate')
     parser.add_argument('--num-samples', type=int, default=10,
                        help='Number of samples to generate')
@@ -925,6 +1304,8 @@ def main():
                        help='Path to Arabic TrueType font file')
     parser.add_argument('--face-photos-dir', type=Path, default=None,
                        help='Path to VGGFace2 dataset directory for real face photos')
+    parser.add_argument('--fast-preview', action='store_true',
+                       help='Fast preview mode: skip augmentations for quicker generation')
     
     args = parser.parse_args()
     
@@ -932,16 +1313,26 @@ def main():
         template_dir=args.template_dir,
         output_dir=args.output_dir,
         config_file=args.config,
+        config_front=args.config_front,
+        config_back=args.config_back,
         backgrounds_dir=args.backgrounds_dir,
         seed=args.seed,
         arabic_font_path=args.arabic_font,
         face_photos_dir=args.face_photos_dir
     )
     
-    doc_types = ['passport', 'cnie_front', 'cnie_back'] if args.doc_type == 'all' else [args.doc_type]
-    
-    for doc_type in doc_types:
-        generator.generate_dataset(doc_type, args.num_samples)
+    if args.doc_type == 'cnie_paired':
+        # Generate paired front/back samples
+        generator.generate_paired_cnie_dataset(args.num_samples, fast_preview=args.fast_preview)
+    elif args.doc_type == 'all':
+        # Generate all document types including paired
+        for doc_type in ['passport', 'cnie_front', 'cnie_back']:
+            generator.generate_dataset(doc_type, args.num_samples, fast_preview=args.fast_preview)
+        # Also generate paired CNIE
+        generator.generate_paired_cnie_dataset(args.num_samples, fast_preview=args.fast_preview)
+    else:
+        # Single document type
+        generator.generate_dataset(args.doc_type, args.num_samples, fast_preview=args.fast_preview)
     
     print(f"\n✅ Dataset generation complete. Output: {args.output_dir}")
 

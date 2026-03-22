@@ -14,13 +14,18 @@ import json
 class VGGFace2PhotoManager:
     """Manages real face photos from VGGFace2 dataset for ID document generation."""
     
-    def __init__(self, vggface2_dir: Path, seed: Optional[int] = None):
+    # Class-level cache for face index (shared across instances)
+    _cached_index: Optional[List[Dict]] = None
+    _cached_path: Optional[Path] = None
+    
+    def __init__(self, vggface2_dir: Path, seed: Optional[int] = None, use_cache: bool = True):
         """
         Initialize the face photo manager.
         
         Args:
             vggface2_dir: Path to VGGFace2 dataset root (contains train/ and test/ folders)
             seed: Random seed for reproducible face selection
+            use_cache: If True, use cached index if available (faster for repeated previews)
         """
         self.vggface2_dir = Path(vggface2_dir)
         self.seed = seed
@@ -29,17 +34,32 @@ class VGGFace2PhotoManager:
         
         # Index of available faces
         self.face_index: List[Dict] = []
+        
+        # Use cache if available and paths match
+        if use_cache and VGGFace2PhotoManager._cached_index is not None:
+            if VGGFace2PhotoManager._cached_path == self.vggface2_dir:
+                self.face_index = VGGFace2PhotoManager._cached_index.copy()
+                print(f"✅ Using cached index with {len(self.face_index)} faces")
+                return
+        
         self._build_index()
+        
+        # Cache the index for future instances
+        if use_cache:
+            VGGFace2PhotoManager._cached_index = self.face_index.copy()
+            VGGFace2PhotoManager._cached_path = self.vggface2_dir
     
     def _build_index(self):
         """Build index of all available face images in VGGFace2 dataset."""
         print(f"🔍 Indexing VGGFace2 dataset at: {self.vggface2_dir}")
         
-        # VGGFace2 structure: vggface2/train/n000001/0001_01.jpg
+        # Try standard VGGFace2 structure: vggface2/train/n000001/0001_01.jpg
+        found_standard_structure = False
         for split in ['train', 'test']:
             split_dir = self.vggface2_dir / split
             if not split_dir.exists():
                 continue
+            found_standard_structure = True
                 
             for identity_dir in split_dir.iterdir():
                 if not identity_dir.is_dir():
@@ -47,12 +67,29 @@ class VGGFace2PhotoManager:
                 
                 identity_id = identity_dir.name
                 
-                # Collect all images for this identity
-                for img_path in identity_dir.glob('*.jpg'):
+                # Collect all images for this identity (support both jpg and png)
+                for img_path in list(identity_dir.glob('*.jpg')) + list(identity_dir.glob('*.png')):
                     self.face_index.append({
                         'identity_id': identity_id,
                         'image_path': img_path,
                         'split': split
+                    })
+        
+        # If no standard structure found, try flat structure (identity dirs directly in root)
+        if not found_standard_structure or len(self.face_index) == 0:
+            print(f"   No standard train/test structure found, trying flat structure...")
+            for identity_dir in self.vggface2_dir.iterdir():
+                if not identity_dir.is_dir():
+                    continue
+                
+                identity_id = identity_dir.name
+                
+                # Collect all images for this identity (support both jpg and png)
+                for img_path in list(identity_dir.glob('*.jpg')) + list(identity_dir.glob('*.png')):
+                    self.face_index.append({
+                        'identity_id': identity_id,
+                        'image_path': img_path,
+                        'split': 'unknown'
                     })
         
         print(f"✅ Indexed {len(self.face_index)} face images")
@@ -156,19 +193,21 @@ class PhotoPlaceholderRenderer:
     def __init__(self, face_manager: VGGFace2PhotoManager):
         self.face_manager = face_manager
     
-    def render_placeholder(self,
-                          template: np.ndarray,
-                          placeholder_config: Dict,
-                          card_region: List[int],
-                          sex: str = 'M') -> Tuple[np.ndarray, Dict]:
+    def render_placeholder_with_face(self,
+                                     template: np.ndarray,
+                                     placeholder_config: Dict,
+                                     card_region: List[int],
+                                     face_img: np.ndarray,
+                                     identity_id: str) -> Tuple[np.ndarray, Dict]:
         """
-        Render a photo placeholder with a real face.
+        Render a photo placeholder with a pre-loaded face image.
         
         Args:
             template: Document template image
             placeholder_config: Configuration for this placeholder
             card_region: [x, y, w, h] of card region
-            sex: Sex for face selection matching
+            face_img: Pre-loaded face image (from VGGFace2)
+            identity_id: Identity ID for the face
             
         Returns:
             Tuple of (updated_template, annotation)
@@ -183,10 +222,7 @@ class PhotoPlaceholderRenderer:
         abs_w = int(rel_bbox[2] * card_w)
         abs_h = int(rel_bbox[3] * card_h)
         
-        # Get random face
-        face_img, identity_id = self.face_manager.get_random_face(sex)
-        
-        # Preprocess face
+        # Preprocess face (using the provided face image)
         shape = placeholder_config.get('shape', 'rect')
         processed_face = self.face_manager.preprocess_face(
             face_img, (abs_w, abs_h), shape
@@ -234,6 +270,29 @@ class PhotoPlaceholderRenderer:
         }
         
         return template, annotation
+    
+    def render_placeholder(self,
+                          template: np.ndarray,
+                          placeholder_config: Dict,
+                          card_region: List[int],
+                          sex: str = 'M') -> Tuple[np.ndarray, Dict]:
+        """
+        Render a photo placeholder with a random real face.
+        
+        Args:
+            template: Document template image
+            placeholder_config: Configuration for this placeholder
+            card_region: [x, y, w, h] of card region
+            sex: Sex for face selection matching
+            
+        Returns:
+            Tuple of (updated_template, annotation)
+        """
+        # Get random face and delegate to render_placeholder_with_face
+        face_img, identity_id = self.face_manager.get_random_face(sex)
+        return self.render_placeholder_with_face(
+            template, placeholder_config, card_region, face_img, identity_id
+        )
 
 
 # Test function

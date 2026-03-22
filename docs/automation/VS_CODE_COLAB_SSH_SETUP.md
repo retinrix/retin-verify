@@ -513,10 +513,13 @@ free -h
 
 ⚠️ **Important:**
 
-1. **ngrok token is private**
-   - Don't commit it to GitHub
-   - Don't share it
-   - Regenerate if leaked
+1. **Cloudflared token is private**
+   # Colab v5 Training Session
+    Host *.trycloudflare.com
+	HostName salem-bride-source-pos.trycloudflare.com (example)
+	User root
+	Port 22
+	ProxyCommand /usr/local/bin/cloudflared access ssh --hostname salem-bride-source-pos.trycloudflare.com
 
 2. **SSH password**
    - Use strong password

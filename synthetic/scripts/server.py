@@ -26,12 +26,14 @@ PROJECT_ROOT = SYNTHETIC_DIR.parent                   # retin-verify/
 
 TEMPLATE_DIR = SYNTHETIC_DIR / "templates"            # retin-verify/synthetic/templates/
 OUTPUT_DIR = PROJECT_ROOT / "data/gui_preview"        # retin-verify/data/gui_preview/
-ARABIC_FONT = SYNTHETIC_DIR / "fonts/ScheherazadeNew-regular.ttf"
+ARABIC_FONT = (SYNTHETIC_DIR / "fonts/ScheherazadeNew-regular.ttf").resolve()
 GENERATOR_SCRIPT = BASE_DIR / "template_document_generator.py"
 PIPELINE_SCRIPT = BASE_DIR / "run_template_pipeline.py"
 BATCH_OUTPUT_DIR = PROJECT_ROOT / "data/cnie_output"  # retin-verify/data/cnie_output/
 CONFIG_DIR = SYNTHETIC_DIR / "configs"                # retin-verify/synthetic/configs/
 CONFIG_PATH = BASE_DIR / "current_config.json"        # temporary config for preview
+CONFIG_FRONT_PATH = BASE_DIR / "current_config_front.json"  # CNIE front config
+CONFIG_BACK_PATH = BASE_DIR / "current_config_back.json"    # CNIE back config
 VGGFACE2_DEFAULT = PROJECT_ROOT / "data" / "vggface2" # Default VGGFace2 path
 
 # Ensure all directories exist
@@ -76,9 +78,29 @@ def get_vggface2_path_from_config() -> Path:
 # ----------------------------------------------------------------------
 @app.route('/')
 def index():
-    """Serve the main GUI HTML."""
-    # The GUI file is expected at: retin-verify/synthetic/scripts/gui_tool/cnie_tool.html
+    """Serve the main entry point with navigation menu."""
+    gui_path = BASE_DIR / 'gui_tool' / 'index.html'
+    return send_file(gui_path)
+
+
+@app.route('/cnie_front')
+def cnie_front():
+    """Serve the CNIE Front GUI tool."""
     gui_path = BASE_DIR / 'gui_tool' / 'cnie_tool.html'
+    return send_file(gui_path)
+
+
+@app.route('/cnie_back')
+def cnie_back():
+    """Serve the CNIE Back GUI tool."""
+    gui_path = BASE_DIR / 'gui_tool' / 'cnie_back_tool.html'
+    return send_file(gui_path)
+
+
+@app.route('/passport')
+def passport():
+    """Serve the Passport placeholder page."""
+    gui_path = BASE_DIR / 'gui_tool' / 'index.html'
     return send_file(gui_path)
 
 
@@ -98,11 +120,39 @@ def status():
     return jsonify({'status': 'ok', 'dependencies': deps})
 
 
+def _detect_config_type(data):
+    """Detect if config is for cnie_front or cnie_back based on fields."""
+    fields = data.get('fields', {})
+    if 'mrz_line3' in fields and 'birth_year' in fields:
+        return 'cnie_back'
+    elif 'national_id' in fields or 'personal_id' in fields:
+        return 'cnie_front'
+    return 'unknown'
+
+
 @app.route('/save_config', methods=['POST'])
 def save_config():
     """Save current config to temporary file (used for preview/generation)."""
     try:
-        data = request.json
+        data = request.get_json(force=True, silent=True) or {}
+        
+        # Detect config type and save to appropriate file
+        config_type = _detect_config_type(data)
+        
+        if config_type == 'cnie_back':
+            target_path = CONFIG_BACK_PATH
+            print(f"📋 Saving CNIE BACK config to {target_path}")
+        elif config_type == 'cnie_front':
+            target_path = CONFIG_FRONT_PATH
+            print(f"📋 Saving CNIE FRONT config to {target_path}")
+        else:
+            target_path = CONFIG_PATH
+            print(f"📋 Saving generic config to {target_path}")
+        
+        with open(target_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        
+        # Also save to generic path for backward compatibility
         with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         
@@ -115,7 +165,7 @@ def save_config():
             if not resolved_path.exists():
                 print(f"⚠️  Warning: vggface2_path does not exist: {resolved_path}")
         
-        return jsonify({"status": "ok", "path": str(CONFIG_PATH)})
+        return jsonify({"status": "ok", "path": str(target_path), "config_type": config_type})
     except Exception as e:
         app.logger.error(f"Save config error: {e}\n{traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
@@ -174,25 +224,44 @@ def generate_preview():
     if not CONFIG_PATH.exists():
         return jsonify({"error": "No config saved"}), 400
 
+    # Get document type from request (default to cnie_front)
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+    except:
+        data = {}
+    doc_type = data.get('doc_type', 'cnie_front')
+    
+    # Validate doc_type
+    if doc_type not in ['cnie_front', 'cnie_back', 'passport']:
+        return jsonify({"error": f"Invalid doc_type: {doc_type}"}), 400
+    
     # Get vggface2 path from config
     vggface2_path = get_vggface2_path_from_config()
     
     cmd = [
         sys.executable, str(GENERATOR_SCRIPT),
-        '--doc-type', 'cnie_front',
+        '--doc-type', doc_type,
         '--config', str(CONFIG_PATH),
         '--arabic-font', str(ARABIC_FONT),
         '--num-samples', '1',
-        '--output-dir', str(OUTPUT_DIR)
+        '--output-dir', str(OUTPUT_DIR),
+        '--template-dir', str(TEMPLATE_DIR),  # Use absolute path
+        '--fast-preview'  # Use fast preview mode (no augmentations, but real faces)
     ]
     
-    # Add face photos dir if vggface2 exists
-    if vggface2_path.exists():
+    # Always use VGGFace2 for real faces in preview (except cnie_back which has no photo)
+    if doc_type != 'cnie_back' and vggface2_path.exists():
         cmd.extend(['--face-photos-dir', str(vggface2_path)])
         print(f"🖼️  Using VGGFace2 photos from: {vggface2_path}")
+    else:
+        if doc_type == 'cnie_back':
+            print(f"ℹ️  CNIE back has no photo placeholder")
+        else:
+            print(f"⚠️  VGGFace2 not found at: {vggface2_path}, using synthetic faces")
     
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60)
+        # Increased timeout for VGGFace2 indexing
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60, cwd=str(PROJECT_ROOT))
         app.logger.info(f"Generator stdout: {result.stdout}")
         if result.stderr:
             app.logger.warning(f"Generator stderr: {result.stderr}")
@@ -203,7 +272,7 @@ def generate_preview():
         app.logger.error(f"Unexpected error: {e}\n{traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
-    sample_dir = OUTPUT_DIR / 'cnie_front' / '000000'
+    sample_dir = OUTPUT_DIR / doc_type / '000000'
     image_path = sample_dir / 'image.jpg'
     if image_path.exists():
         return send_file(image_path, mimetype='image/jpeg')
@@ -218,8 +287,17 @@ def generate_dataset():
     (using the generator directly, without pipeline splits).
     Includes VGGFace2 photos if configured.
     """
-    data = request.json
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+    except:
+        data = {}
     num_samples = data.get('num_samples', 5)
+    doc_type = data.get('doc_type', 'cnie_front')
+    
+    # Validate doc_type
+    if doc_type not in ['cnie_front', 'cnie_back', 'passport']:
+        return jsonify({"error": f"Invalid doc_type: {doc_type}"}), 400
+    
     if not CONFIG_PATH.exists():
         return jsonify({"error": "No config saved"}), 400
 
@@ -228,22 +306,26 @@ def generate_dataset():
     
     cmd = [
         sys.executable, str(GENERATOR_SCRIPT),
-        '--doc-type', 'cnie_front',
+        '--doc-type', doc_type,
         '--config', str(CONFIG_PATH),
         '--arabic-font', str(ARABIC_FONT),
         '--num-samples', str(num_samples),
-        '--output-dir', str(OUTPUT_DIR)
+        '--output-dir', str(OUTPUT_DIR),
+        '--template-dir', str(TEMPLATE_DIR)  # Use absolute path
     ]
     
-    # Add face photos dir if vggface2 exists
-    if vggface2_path.exists():
+    # Add face photos dir if vggface2 exists (and not cnie_back)
+    if doc_type != 'cnie_back' and vggface2_path.exists():
         cmd.extend(['--face-photos-dir', str(vggface2_path)])
         print(f"🖼️  Using VGGFace2 photos from: {vggface2_path}")
     else:
-        print(f"⚠️  VGGFace2 not found at: {vggface2_path}")
+        if doc_type == 'cnie_back':
+            print(f"ℹ️  CNIE back has no photo placeholder")
+        else:
+            print(f"⚠️  VGGFace2 not found at: {vggface2_path}")
     
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=300)
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=300, cwd=str(PROJECT_ROOT))
         app.logger.info(f"Generator stdout: {result.stdout}")
         if result.stderr:
             app.logger.warning(f"Generator stderr: {result.stderr}")
@@ -261,12 +343,21 @@ def generate_dataset():
 def run_pipeline():
     """
     Run the full pipeline (splits, exports, etc.) using the saved config.
-    Expects JSON with optional 'num_samples' and 'output_dir'.
+    Expects JSON with optional 'num_samples', 'output_dir', and 'doc_type'.
     Includes VGGFace2 photos if configured.
     """
-    data = request.json or {}
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+    except:
+        data = {}
     num_samples = data.get('num_samples', 5)
+    doc_type = data.get('doc_type', 'cnie_front')
     custom_output = data.get('output_dir')
+    
+    # Validate doc_type
+    if doc_type not in ['cnie_front', 'cnie_back', 'passport']:
+        return jsonify({"error": f"Invalid doc_type: {doc_type}"}), 400
+    
     if custom_output:
         output_dir = Path(custom_output)
     else:
@@ -283,22 +374,25 @@ def run_pipeline():
     # Build command for run_template_pipeline.py
     cmd = [
         sys.executable, str(PIPELINE_SCRIPT),
-        '--doc-type', 'cnie_front',
+        '--doc-type', doc_type,
         '--doc-config', str(CONFIG_PATH),
         '--arabic-font', str(ARABIC_FONT),
         '--num-samples', str(num_samples),
         '--output-dir', str(output_dir)
     ]
     
-    # Add face photos dir if vggface2 exists
-    if vggface2_path.exists():
+    # Add face photos dir if vggface2 exists (and not cnie_back)
+    if doc_type != 'cnie_back' and vggface2_path.exists():
         cmd.extend(['--face-photos-dir', str(vggface2_path)])
         print(f"🖼️  Using VGGFace2 photos from: {vggface2_path}")
     else:
-        print(f"⚠️  VGGFace2 not found at: {vggface2_path}")
+        if doc_type == 'cnie_back':
+            print(f"ℹ️  CNIE back has no photo placeholder")
+        else:
+            print(f"⚠️  VGGFace2 not found at: {vggface2_path}")
     
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=600)
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=600, cwd=str(PROJECT_ROOT))
         app.logger.info(f"Pipeline stdout: {result.stdout}")
         if result.stderr:
             app.logger.warning(f"Pipeline stderr: {result.stderr}")
@@ -317,10 +411,168 @@ def run_pipeline():
     })
 
 
+@app.route('/generate_paired', methods=['POST'])
+def generate_paired():
+    """Generate paired CNIE front and back samples with the same identity."""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+    except:
+        data = {}
+    
+    num_samples = data.get('num_samples', 5)
+    
+    # Check for both front and back configs
+    # Try specific paths first, then fall back to generic
+    front_path = None
+    back_path = None
+    
+    if CONFIG_FRONT_PATH.exists():
+        front_path = CONFIG_FRONT_PATH
+        print(f"📂 Using front config: {front_path}")
+    elif CONFIG_PATH.exists():
+        # Check if generic config is actually front config
+        try:
+            with open(CONFIG_PATH, 'r') as f:
+                cfg = json.load(f)
+            fields = cfg.get('fields', {})
+            if 'national_id' in fields or 'personal_id' in fields:
+                front_path = CONFIG_PATH
+                print(f"📂 Using generic config as front: {front_path}")
+        except:
+            pass
+    
+    if CONFIG_BACK_PATH.exists():
+        back_path = CONFIG_BACK_PATH
+        print(f"📂 Using back config: {back_path}")
+    
+    # Validate configs exist
+    if not front_path and not back_path:
+        return jsonify({"error": "No configs saved. Please configure both CNIE front and back in the GUI tools first."}), 400
+    
+    if not front_path:
+        return jsonify({"error": "CNIE front config not found. Please configure CNIE front first (must have national_id or personal_id fields)."}), 400
+    
+    if not back_path:
+        return jsonify({"error": "CNIE back config not found. Please configure CNIE back first (must have mrz_line3 and birth_year fields)."}), 400
+    
+    # Get vggface2 path from config
+    vggface2_path = get_vggface2_path_from_config()
+    
+    cmd = [
+        sys.executable, str(GENERATOR_SCRIPT),
+        '--doc-type', 'cnie_paired',
+        '--config-front', str(front_path),
+        '--config-back', str(back_path),
+        '--arabic-font', str(ARABIC_FONT),
+        '--num-samples', str(num_samples),
+        '--output-dir', str(OUTPUT_DIR),
+        '--template-dir', str(TEMPLATE_DIR)
+    ]
+    
+    # Add face photos dir if vggface2 exists
+    if vggface2_path.exists():
+        cmd.extend(['--face-photos-dir', str(vggface2_path)])
+        print(f"🖼️  Using VGGFace2 photos from: {vggface2_path}")
+    else:
+        print(f"⚠️  VGGFace2 not found at: {vggface2_path}, using synthetic faces")
+    
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=300, cwd=str(PROJECT_ROOT))
+        app.logger.info(f"Generator stdout: {result.stdout}")
+        if result.stderr:
+            app.logger.warning(f"Generator stderr: {result.stderr}")
+    except subprocess.CalledProcessError as e:
+        app.logger.error(f"Generator failed: {e.stderr}")
+        return jsonify({"error": e.stderr}), 500
+    except Exception as e:
+        app.logger.error(f"Unexpected error: {e}\n{traceback.format_exc()}")
+        return jsonify({"error": str(e)}), 500
+    
+    return jsonify({
+        "status": "ok",
+        "output_dir": str(OUTPUT_DIR / "cnie_pairs"),
+        "num_pairs": num_samples,
+        "vggface2_used": vggface2_path.exists()
+    })
+
+
+@app.route('/set_vggface2_path', methods=['POST'])
+def set_vggface2_path():
+    """Set VGGFace2 dataset path and return stats."""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        path = data.get('path', '')
+        
+        if not path:
+            return jsonify({"error": "No path provided"}), 400
+            
+        vggface2_path = Path(path)
+        if not vggface2_path.exists():
+            return jsonify({"error": f"Path does not exist: {path}"}), 400
+        
+        # Count identities and images
+        num_identities = 0
+        num_images = 0
+        try:
+            for subdir in vggface2_path.iterdir():
+                if subdir.is_dir():
+                    num_identities += 1
+                    num_images += len(list(subdir.glob('*.jpg')))
+        except Exception as e:
+            return jsonify({"error": f"Error reading directory: {e}"}), 500
+        
+        # Save path to current config
+        if CONFIG_PATH.exists():
+            with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            config['vggface2_path'] = str(vggface2_path)
+            with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2)
+        
+        return jsonify({
+            "status": "ok",
+            "path": str(vggface2_path),
+            "num_identities": num_identities,
+            "num_images": num_images
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/get_vggface2_status', methods=['GET'])
+def get_vggface2_status():
+    """Get current VGGFace2 configuration status."""
+    try:
+        vggface2_path = get_vggface2_path_from_config()
+        
+        if not vggface2_path.exists():
+            return jsonify({"configured": False})
+        
+        # Count identities and images
+        num_identities = 0
+        num_images = 0
+        try:
+            for subdir in vggface2_path.iterdir():
+                if subdir.is_dir():
+                    num_identities += 1
+                    num_images += len(list(subdir.glob('*.jpg')))
+        except:
+            pass
+        
+        return jsonify({
+            "configured": True,
+            "path": str(vggface2_path),
+            "num_identities": num_identities,
+            "num_images": num_images
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     # Print configuration paths for debugging
     print("=" * 60)
-    print("CNIE Tool Server")
+    print("Document Configuration Tool Server")
     print("=" * 60)
     print("Configuration:")
     print(f"  PROJECT_ROOT:     {PROJECT_ROOT}")
@@ -370,5 +622,9 @@ if __name__ == '__main__':
         
     print("=" * 60)
     print("🚀 Server starting at http://127.0.0.1:5000")
+    print("📂 GUI Tool: http://127.0.0.1:5000/")
+    print("🪪  CNIE Front: http://127.0.0.1:5000/cnie_front")
+    print("🪪  CNIE Back: http://127.0.0.1:5000/cnie_back")
+    print("🛂 Passport: http://127.0.0.1:5000/passport (coming soon)")
     print("=" * 60)
     app.run(host='127.0.0.1', port=5000, debug=True)
